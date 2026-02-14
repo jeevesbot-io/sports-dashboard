@@ -15,14 +15,9 @@ class StandardResponse(BaseModel, Generic[DataT]):
     message: Optional[str] = None
     data: Optional[DataT] = None
     errors: Optional[Dict[str, Any]] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
     
-    model_config = ConfigDict(
-        from_attributes=True,
-        json_encoders={
-            datetime: lambda v: v.isoformat()
-        }
-    )
+    model_config = ConfigDict(from_attributes=True)
 
 
 class HealthResponse(BaseModel):
@@ -31,7 +26,7 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     database: str
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
 class ErrorResponse(BaseModel):
@@ -41,7 +36,7 @@ class ErrorResponse(BaseModel):
     message: str
     error_code: Optional[str] = None
     details: Optional[Dict[str, Any]] = None
-    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    timestamp: str = Field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
 class PaginationParams(BaseModel):

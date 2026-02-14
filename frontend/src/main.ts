@@ -18,6 +18,8 @@ import ToastService from 'primevue/toastservice'
 import Skeleton from 'primevue/skeleton'
 import Tag from 'primevue/tag'
 import TabMenu from 'primevue/tabmenu'
+import TabView from 'primevue/tabview'
+import TabPanel from 'primevue/tabpanel'
 import Panel from 'primevue/panel'
 import Chip from 'primevue/chip'
 
@@ -79,6 +81,8 @@ app.component('Toast', Toast)
 app.component('Skeleton', Skeleton)
 app.component('Tag', Tag)
 app.component('TabMenu', TabMenu)
+app.component('TabView', TabView)
+app.component('TabPanel', TabPanel)
 app.component('Panel', Panel)
 app.component('Chip', Chip)
 app.component('VChart', ECharts)
