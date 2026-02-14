@@ -13,7 +13,9 @@ from .service import FootballService
 from .ingestion import FootballDataIngestion
 from .schemas import (
     FootballTeamResponse, FootballTeamDetail, FootballFixtureResponse,
-    FootballStandingResponse, FootballFormAnalysis
+    FootballStandingResponse, FootballFormAnalysis, FootballXGStandingsResponse,
+    FootballHeadToHeadResponse, FootballPredictionResponse, FootballChartDataResponse,
+    FootballTeamXGAnalysisResponse
 )
 
 logger = logging.getLogger(__name__)
@@ -264,4 +266,342 @@ async def ingest_football_data(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to ingest data: {str(e)}"
+        )
+
+
+@router.get("/head-to-head", response_model=StandardResponse[FootballHeadToHeadResponse])
+async def get_head_to_head(
+    team1: str = Query(..., description="First team name"),
+    team2: str = Query(..., description="Second team name"),
+    season: Optional[int] = Query(
+        default=None,
+        ge=2000,
+        le=2030,
+        description="Season filter (optional)"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get head-to-head record between two teams.
+    
+    Query Parameters:
+        - team1: First team name (required)
+        - team2: Second team name (required)
+        - season: Optional season filter
+        
+    Returns:
+        Head-to-head analysis with match history and record
+    """
+    try:
+        h2h_data = await football_service.get_head_to_head(team1, team2, db, season)
+        
+        if "error" in h2h_data:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=h2h_data["error"]
+            )
+        
+        return StandardResponse(
+            data=FootballHeadToHeadResponse(**h2h_data),
+            message=f"Retrieved head-to-head for {team1} vs {team2}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching head-to-head for {team1} vs {team2}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve head-to-head data"
+        )
+
+
+@router.get("/xg/standings", response_model=StandardResponse[List[FootballXGStandingsResponse]])
+async def get_xg_standings(
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get xG-based league standings.
+    
+    Query Parameters:
+        - season: Season year (default: 2025)
+        
+    Returns:
+        League table sorted by xG difference with performance analysis
+    """
+    try:
+        xg_standings = await football_service.get_xg_standings(db, season)
+        
+        response_data = [
+            FootballXGStandingsResponse(**standing) 
+            for standing in xg_standings
+        ]
+        
+        return StandardResponse(
+            data=response_data,
+            message=f"Retrieved xG standings for season {season}"
+        )
+    except Exception as e:
+        logger.error(f"Error fetching xG standings: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve xG standings"
+        )
+
+
+@router.get("/xg/overperformers", response_model=StandardResponse[List[FootballXGStandingsResponse]])
+async def get_xg_overperformers(
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year"
+    ),
+    threshold: float = Query(
+        default=2.0,
+        ge=0.5,
+        le=10.0,
+        description="Minimum overperformance threshold"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get teams significantly over/under-performing their xG.
+    
+    Query Parameters:
+        - season: Season year (default: 2025)
+        - threshold: Minimum overperformance threshold (default: 2.0)
+        
+    Returns:
+        Teams with significant over/under-performance vs xG
+    """
+    try:
+        overperformers = await football_service.get_xg_overperformers(db, season, threshold)
+        
+        response_data = [
+            FootballXGStandingsResponse(**team) 
+            for team in overperformers
+        ]
+        
+        return StandardResponse(
+            data=response_data,
+            message=f"Retrieved {len(response_data)} significant xG performers"
+        )
+    except Exception as e:
+        logger.error(f"Error fetching xG overperformers: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve xG overperformers"
+        )
+
+
+@router.get("/teams/{team_id}/xg", response_model=StandardResponse[FootballTeamXGAnalysisResponse])
+async def get_team_xg_analysis(
+    team_id: int,
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get xG analysis for a specific team.
+    
+    Args:
+        team_id: Team ID
+        season: Season year (default: 2025)
+        
+    Returns:
+        Team-specific xG analysis with performance metrics
+    """
+    try:
+        xg_analysis = await football_service.get_team_xg_analysis(team_id, db, season)
+        
+        if not xg_analysis:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Team with ID {team_id} not found"
+            )
+        
+        return StandardResponse(
+            data=FootballTeamXGAnalysisResponse(**xg_analysis),
+            message=f"Retrieved xG analysis for team {team_id}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching xG analysis for team {team_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve team xG analysis"
+        )
+
+
+@router.get("/predict", response_model=StandardResponse[FootballPredictionResponse])
+async def predict_match(
+    home: str = Query(..., description="Home team name"),
+    away: str = Query(..., description="Away team name"),
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Predict match outcome using Poisson model.
+    
+    Query Parameters:
+        - home: Home team name (required)
+        - away: Away team name (required)
+        - season: Season year (default: 2025)
+        
+    Returns:
+        Match prediction with win/draw/loss probabilities
+    """
+    try:
+        from .predictions import predict_match_outcome
+        
+        prediction = await predict_match_outcome(home, away, db, season)
+        
+        if "error" in prediction:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=prediction["error"]
+            )
+        
+        return StandardResponse(
+            data=FootballPredictionResponse(**prediction),
+            message=f"Generated prediction for {home} vs {away}"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error predicting {home} vs {away}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to generate match prediction"
+        )
+
+
+@router.get("/charts/points-progression", response_model=StandardResponse[FootballChartDataResponse])
+async def get_points_progression(
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get cumulative points progression by matchday.
+    
+    Query Parameters:
+        - season: Season year (default: 2025)
+        
+    Returns:
+        Points progression data for chart visualization
+    """
+    try:
+        progression_data = await football_service.get_points_progression(db, season)
+        
+        return StandardResponse(
+            data=FootballChartDataResponse(**progression_data),
+            message=f"Retrieved points progression for season {season}"
+        )
+    except Exception as e:
+        logger.error(f"Error fetching points progression: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve points progression"
+        )
+
+
+@router.get("/charts/form-heatmap", response_model=StandardResponse[FootballChartDataResponse])
+async def get_form_heatmap(
+    games: int = Query(
+        default=10,
+        ge=5,
+        le=20,
+        description="Number of recent games"
+    ),
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get form heatmap data for all teams.
+    
+    Query Parameters:
+        - games: Number of recent games (default: 10)
+        - season: Season year (default: 2025)
+        
+    Returns:
+        Form heatmap data for chart visualization
+    """
+    try:
+        heatmap_data = await football_service.get_form_heatmap(db, games, season)
+        
+        return StandardResponse(
+            data=FootballChartDataResponse(**heatmap_data),
+            message=f"Retrieved form heatmap for {games} recent games"
+        )
+    except Exception as e:
+        logger.error(f"Error fetching form heatmap: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to retrieve form heatmap"
+        )
+
+
+@router.post("/ingest-xg", response_model=StandardResponse[dict])
+async def ingest_xg_data(
+    season: int = Query(
+        default=2025,
+        ge=2000,
+        le=2030,
+        description="Season year to ingest"
+    ),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Manually trigger xG data ingestion from Understat.
+    
+    This will attempt to scrape xG data from understat.com for the specified season.
+    Falls back to mock data if scraping fails.
+    
+    Query Parameters:
+        - season: Season year (default: 2025)
+        
+    Returns:
+        Ingestion summary with counts of scraped/stored data
+    """
+    try:
+        logger.info(f"Starting xG data ingestion for season {season}")
+        
+        from .scrapers.understat import ingest_xg_data
+        result = await ingest_xg_data(db, season)
+        
+        return StandardResponse(
+            data=result,
+            message=f"xG data ingestion completed for season {season}"
+        )
+    except Exception as e:
+        logger.error(f"Error during xG ingestion: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to ingest xG data: {str(e)}"
         )

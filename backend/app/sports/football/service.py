@@ -369,3 +369,452 @@ class FootballService:
             "win_percentage": round(win_percentage, 1),
             "current_position": current_position
         }
+    
+    async def get_head_to_head(
+        self,
+        team1_name: str,
+        team2_name: str,
+        db: AsyncSession,
+        season: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        Get head-to-head record between two teams.
+        
+        Args:
+            team1_name: First team name
+            team2_name: Second team name
+            db: Database session
+            season: Optional season filter
+            
+        Returns:
+            Head-to-head analysis
+        """
+        # Get teams
+        team1_query = select(FootballTeam).where(
+            or_(
+                FootballTeam.name.ilike(f"%{team1_name}%"),
+                FootballTeam.short_name.ilike(f"%{team1_name}%")
+            )
+        )
+        team2_query = select(FootballTeam).where(
+            or_(
+                FootballTeam.name.ilike(f"%{team2_name}%"),
+                FootballTeam.short_name.ilike(f"%{team2_name}%")
+            )
+        )
+        
+        team1_result = await db.execute(team1_query)
+        team2_result = await db.execute(team2_query)
+        
+        team1 = team1_result.scalar_one_or_none()
+        team2 = team2_result.scalar_one_or_none()
+        
+        if not team1 or not team2:
+            return {
+                "error": f"Team not found: {team1_name if not team1 else team2_name}",
+                "team1": team1_name,
+                "team2": team2_name,
+                "matches": [],
+                "team1_wins": 0,
+                "team2_wins": 0,
+                "draws": 0
+            }
+        
+        # Get matches between these teams
+        matches_query = select(FootballFixture).options(
+            selectinload(FootballFixture.home_team),
+            selectinload(FootballFixture.away_team)
+        ).where(
+            and_(
+                or_(
+                    and_(FootballFixture.home_team_id == team1.id, FootballFixture.away_team_id == team2.id),
+                    and_(FootballFixture.home_team_id == team2.id, FootballFixture.away_team_id == team1.id)
+                ),
+                FootballFixture.status == "FINISHED"
+            )
+        )
+        
+        if season:
+            matches_query = matches_query.where(FootballFixture.season == season)
+        
+        matches_query = matches_query.order_by(desc(FootballFixture.utc_date))
+        
+        matches_result = await db.execute(matches_query)
+        matches = list(matches_result.scalars().all())
+        
+        # Calculate head-to-head record
+        team1_wins = team2_wins = draws = 0
+        team1_goals = team2_goals = 0
+        
+        for match in matches:
+            if match.home_score is not None and match.away_score is not None:
+                # Determine which team scored how many
+                if match.home_team_id == team1.id:
+                    # Team1 is home
+                    t1_score, t2_score = match.home_score, match.away_score
+                else:
+                    # Team1 is away
+                    t1_score, t2_score = match.away_score, match.home_score
+                
+                team1_goals += t1_score
+                team2_goals += t2_score
+                
+                if t1_score > t2_score:
+                    team1_wins += 1
+                elif t2_score > t1_score:
+                    team2_wins += 1
+                else:
+                    draws += 1
+        
+        return {
+            "team1": FootballTeamResponse.model_validate(team1),
+            "team2": FootballTeamResponse.model_validate(team2),
+            "matches": [FootballFixtureResponse.model_validate(m) for m in matches],
+            "team1_wins": team1_wins,
+            "team2_wins": team2_wins,
+            "draws": draws,
+            "team1_goals": team1_goals,
+            "team2_goals": team2_goals,
+            "total_matches": len(matches)
+        }
+    
+    async def get_xg_standings(
+        self,
+        db: AsyncSession,
+        season: int = 2025
+    ) -> List[Dict[str, Any]]:
+        """
+        Get xG-based league table.
+        
+        Args:
+            db: Database session
+            season: Season year
+            
+        Returns:
+            League table with xG data
+        """
+        from .models import FootballXG
+        from sqlalchemy import func
+        
+        # Query xG data grouped by team
+        xg_query = select(
+            FootballXG.home_team.label('team_name'),
+            func.sum(FootballXG.home_xg).label('xg_for'),
+            func.sum(FootballXG.away_xg).label('xg_against'),
+            func.sum(FootballXG.home_goals).label('goals_for'),
+            func.sum(FootballXG.away_goals).label('goals_against'),
+            func.count().label('matches')
+        ).where(FootballXG.season == season).group_by(FootballXG.home_team)
+        
+        # Add away games
+        xg_away_query = select(
+            FootballXG.away_team.label('team_name'),
+            func.sum(FootballXG.away_xg).label('xg_for'),
+            func.sum(FootballXG.home_xg).label('xg_against'),
+            func.sum(FootballXG.away_goals).label('goals_for'),
+            func.sum(FootballXG.home_goals).label('goals_against'),
+            func.count().label('matches')
+        ).where(FootballXG.season == season).group_by(FootballXG.away_team)
+        
+        # Execute queries
+        home_result = await db.execute(xg_query)
+        away_result = await db.execute(xg_away_query)
+        
+        # Combine results
+        xg_stats = {}
+        
+        for row in home_result:
+            xg_stats[row.team_name] = {
+                'team_name': row.team_name,
+                'xg_for': float(row.xg_for or 0),
+                'xg_against': float(row.xg_against or 0),
+                'goals_for': int(row.goals_for or 0),
+                'goals_against': int(row.goals_against or 0),
+                'matches': int(row.matches or 0)
+            }
+        
+        for row in away_result:
+            if row.team_name in xg_stats:
+                xg_stats[row.team_name]['xg_for'] += float(row.xg_for or 0)
+                xg_stats[row.team_name]['xg_against'] += float(row.xg_against or 0)
+                xg_stats[row.team_name]['goals_for'] += int(row.goals_for or 0)
+                xg_stats[row.team_name]['goals_against'] += int(row.goals_against or 0)
+                xg_stats[row.team_name]['matches'] += int(row.matches or 0)
+            else:
+                xg_stats[row.team_name] = {
+                    'team_name': row.team_name,
+                    'xg_for': float(row.xg_for or 0),
+                    'xg_against': float(row.xg_against or 0),
+                    'goals_for': int(row.goals_for or 0),
+                    'goals_against': int(row.goals_against or 0),
+                    'matches': int(row.matches or 0)
+                }
+        
+        # Calculate derived metrics
+        standings = []
+        for team_name, stats in xg_stats.items():
+            xg_diff = stats['xg_for'] - stats['xg_against']
+            actual_diff = stats['goals_for'] - stats['goals_against']
+            overperformance = actual_diff - xg_diff
+            
+            standings.append({
+                'team': team_name,
+                'matches': stats['matches'],
+                'xg_for': round(stats['xg_for'], 2),
+                'xg_against': round(stats['xg_against'], 2),
+                'xg_diff': round(xg_diff, 2),
+                'goals_for': stats['goals_for'],
+                'goals_against': stats['goals_against'],
+                'goal_diff': actual_diff,
+                'overperformance': round(overperformance, 2)
+            })
+        
+        # Sort by xG difference
+        standings.sort(key=lambda x: x['xg_diff'], reverse=True)
+        
+        return standings
+    
+    async def get_xg_overperformers(
+        self,
+        db: AsyncSession,
+        season: int = 2025,
+        min_threshold: float = 2.0
+    ) -> List[Dict[str, Any]]:
+        """
+        Get teams significantly over/under-performing their xG.
+        
+        Args:
+            db: Database session
+            season: Season year
+            min_threshold: Minimum overperformance threshold
+            
+        Returns:
+            List of over/under-performing teams
+        """
+        xg_standings = await self.get_xg_standings(db, season)
+        
+        # Filter for significant over/under-performers
+        significant_performers = [
+            team for team in xg_standings 
+            if abs(team['overperformance']) >= min_threshold
+        ]
+        
+        # Sort by overperformance (highest first)
+        significant_performers.sort(key=lambda x: x['overperformance'], reverse=True)
+        
+        return significant_performers
+    
+    async def get_team_xg_analysis(
+        self,
+        team_id: int,
+        db: AsyncSession,
+        season: int = 2025
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get xG analysis for a specific team.
+        
+        Args:
+            team_id: Team ID
+            db: Database session
+            season: Season year
+            
+        Returns:
+            Team xG analysis
+        """
+        # Get team
+        team_result = await db.execute(
+            select(FootballTeam).where(FootballTeam.id == team_id)
+        )
+        team = team_result.scalar_one_or_none()
+        
+        if not team:
+            return None
+        
+        from .models import FootballXG
+        from sqlalchemy import func
+        
+        # Get team's xG data
+        home_query = select(
+            func.sum(FootballXG.home_xg).label('xg_for'),
+            func.sum(FootballXG.away_xg).label('xg_against'),
+            func.sum(FootballXG.home_goals).label('goals_for'),
+            func.sum(FootballXG.away_goals).label('goals_against'),
+            func.count().label('home_matches')
+        ).where(
+            and_(
+                FootballXG.home_team == team.name,
+                FootballXG.season == season
+            )
+        )
+        
+        away_query = select(
+            func.sum(FootballXG.away_xg).label('xg_for'),
+            func.sum(FootballXG.home_xg).label('xg_against'),
+            func.sum(FootballXG.away_goals).label('goals_for'),
+            func.sum(FootballXG.home_goals).label('goals_against'),
+            func.count().label('away_matches')
+        ).where(
+            and_(
+                FootballXG.away_team == team.name,
+                FootballXG.season == season
+            )
+        )
+        
+        home_result = await db.execute(home_query)
+        away_result = await db.execute(away_query)
+        
+        home_stats = home_result.first()
+        away_stats = away_result.first()
+        
+        # Combine stats
+        total_xg_for = (float(home_stats.xg_for or 0) + 
+                       float(away_stats.xg_for or 0))
+        total_xg_against = (float(home_stats.xg_against or 0) + 
+                           float(away_stats.xg_against or 0))
+        total_goals_for = (int(home_stats.goals_for or 0) + 
+                          int(away_stats.goals_for or 0))
+        total_goals_against = (int(home_stats.goals_against or 0) + 
+                              int(away_stats.goals_against or 0))
+        total_matches = (int(home_stats.home_matches or 0) + 
+                        int(away_stats.away_matches or 0))
+        
+        xg_diff = total_xg_for - total_xg_against
+        actual_diff = total_goals_for - total_goals_against
+        overperformance = actual_diff - xg_diff
+        
+        return {
+            'team': FootballTeamResponse.model_validate(team),
+            'season': season,
+            'matches': total_matches,
+            'xg_for': round(total_xg_for, 2),
+            'xg_against': round(total_xg_against, 2),
+            'xg_diff': round(xg_diff, 2),
+            'goals_for': total_goals_for,
+            'goals_against': total_goals_against,
+            'goal_diff': actual_diff,
+            'overperformance': round(overperformance, 2),
+            'xg_per_game': round(total_xg_for / total_matches, 2) if total_matches > 0 else 0,
+            'xa_per_game': round(total_xg_against / total_matches, 2) if total_matches > 0 else 0
+        }
+    
+    async def get_points_progression(
+        self,
+        db: AsyncSession,
+        season: int = 2025
+    ) -> Dict[str, Any]:
+        """
+        Get cumulative points progression for all teams by matchday.
+        
+        Args:
+            db: Database session
+            season: Season year
+            
+        Returns:
+            Points progression data
+        """
+        # Get all standings data ordered by matchday
+        standings_query = select(FootballStanding).options(
+            selectinload(FootballStanding.team)
+        ).where(
+            FootballStanding.season == season
+        ).order_by(FootballStanding.matchday, FootballStanding.position)
+        
+        standings_result = await db.execute(standings_query)
+        all_standings = list(standings_result.scalars().all())
+        
+        # Group by team and build progression
+        team_progressions = {}
+        matchdays = set()
+        
+        for standing in all_standings:
+            team_name = standing.team.name
+            matchday = standing.matchday
+            
+            matchdays.add(matchday)
+            
+            if team_name not in team_progressions:
+                team_progressions[team_name] = {}
+            
+            team_progressions[team_name][matchday] = standing.points
+        
+        # Convert to chart format
+        matchdays = sorted(list(matchdays))
+        series_data = []
+        
+        for team_name, progression in team_progressions.items():
+            points_data = []
+            for matchday in matchdays:
+                points_data.append({
+                    'matchday': matchday,
+                    'points': progression.get(matchday, 0)
+                })
+            
+            series_data.append({
+                'name': team_name,
+                'data': points_data
+            })
+        
+        return {
+            'matchdays': matchdays,
+            'series': series_data,
+            'season': season
+        }
+    
+    async def get_form_heatmap(
+        self,
+        db: AsyncSession,
+        games: int = 10,
+        season: int = 2025
+    ) -> Dict[str, Any]:
+        """
+        Get form heatmap data for all teams.
+        
+        Args:
+            db: Database session
+            games: Number of recent games
+            season: Season year
+            
+        Returns:
+            Form heatmap data
+        """
+        # Get all teams
+        teams_result = await db.execute(select(FootballTeam))
+        teams = list(teams_result.scalars().all())
+        
+        heatmap_data = []
+        
+        for team in teams:
+            # Get recent form for this team
+            form_analysis = await self.get_team_form(team.id, db, games)
+            
+            if form_analysis:
+                # Convert form string to heat values
+                form_values = []
+                for char in form_analysis.form_string:
+                    if char == 'W':
+                        form_values.append(3)  # Win = 3 points
+                    elif char == 'D':
+                        form_values.append(1)  # Draw = 1 point
+                    else:  # 'L'
+                        form_values.append(0)  # Loss = 0 points
+                
+                # Pad with zeros if needed
+                while len(form_values) < games:
+                    form_values.insert(0, 0)
+                
+                heatmap_data.append({
+                    'team': team.name,
+                    'form_values': form_values,
+                    'form_string': form_analysis.form_string,
+                    'points': form_analysis.points,
+                    'win_percentage': form_analysis.win_percentage
+                })
+        
+        # Sort by recent form (points in last N games)
+        heatmap_data.sort(key=lambda x: x['points'], reverse=True)
+        
+        return {
+            'teams': heatmap_data,
+            'games': games,
+            'season': season
+        }

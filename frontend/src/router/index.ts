@@ -7,6 +7,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '@/views/HomeView.vue'
 import FootballDashboardView from '@/views/football/DashboardView.vue'
 import FootballTeamDetailView from '@/views/football/TeamDetailView.vue'
+import FootballAnalyticsView from '@/views/football/AnalyticsView.vue'
 import CricketDashboardView from '@/views/cricket/DashboardView.vue'
 import RugbyDashboardView from '@/views/rugby/DashboardView.vue'
 
@@ -39,6 +40,15 @@ const router = createRouter({
         sport: 'football'
       },
       props: true
+    },
+    {
+      path: '/football/analytics',
+      name: 'football-analytics',
+      component: FootballAnalyticsView,
+      meta: {
+        title: 'Advanced Analytics',
+        sport: 'football'
+      }
     },
     {
       path: '/cricket',

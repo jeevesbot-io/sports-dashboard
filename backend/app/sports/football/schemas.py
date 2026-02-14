@@ -1,9 +1,18 @@
 """
 Football Pydantic schemas for API responses.
 """
-from typing import Optional, List
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Optional, List, Any
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime
+
+
+def _dt_to_str(v: Any) -> str:
+    """Convert datetime to ISO string."""
+    if isinstance(v, datetime):
+        return v.isoformat()
+    if isinstance(v, str):
+        return v
+    return str(v) if v else ""
 
 
 class FootballTeamBase(BaseModel):
@@ -20,16 +29,20 @@ class FootballTeamResponse(FootballTeamBase):
     
     id: int
     api_id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Any = ""
+    updated_at: Any = ""
     
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
 
 
 class FootballTeamDetail(FootballTeamResponse):
     """Detailed football team schema with statistics."""
     
-    # Statistics (calculated fields)
     total_matches: int = 0
     wins: int = 0
     draws: int = 0
@@ -48,10 +61,15 @@ class FootballFixtureBase(BaseModel):
     season: int
     matchday: int
     status: str
-    utc_date: datetime
+    utc_date: Any = ""
     home_score: Optional[int] = None
     away_score: Optional[int] = None
     winner: Optional[str] = None
+    
+    @field_validator('utc_date', mode='before')
+    @classmethod
+    def serialize_utc_date(cls, v):
+        return _dt_to_str(v)
 
 
 class FootballFixtureResponse(FootballFixtureBase):
@@ -61,26 +79,15 @@ class FootballFixtureResponse(FootballFixtureBase):
     api_id: int
     home_team: FootballTeamResponse
     away_team: FootballTeamResponse
-    created_at: datetime
-    updated_at: datetime
-    
-    # Computed fields
-    score_display: Optional[str] = None
-    is_finished: bool = False
+    created_at: Any = ""
+    updated_at: Any = ""
     
     model_config = ConfigDict(from_attributes=True)
     
-    @property
-    def score_display(self) -> Optional[str]:
-        """Format score for display."""
-        if self.home_score is not None and self.away_score is not None:
-            return f"{self.home_score} - {self.away_score}"
-        return None
-    
-    @property
-    def is_finished(self) -> bool:
-        """Check if fixture is finished."""
-        return self.status == "FINISHED"
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
 
 
 class FootballStandingBase(BaseModel):
@@ -105,13 +112,17 @@ class FootballStandingResponse(FootballStandingBase):
     
     id: int
     team: FootballTeamResponse
-    created_at: datetime
+    created_at: Any = ""
     
-    # Computed fields - these will be calculated in the service layer
     win_percentage: float = 0.0
     points_per_game: float = 0.0
     
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
 
 
 class FootballFormAnalysis(BaseModel):
@@ -119,7 +130,7 @@ class FootballFormAnalysis(BaseModel):
     
     team: FootballTeamResponse
     games_analyzed: int
-    form_string: str  # e.g., "WWLDW"
+    form_string: str
     wins: int
     draws: int
     losses: int
@@ -150,3 +161,91 @@ class FootballTeamFormParams(BaseModel):
     """Parameters for team form analysis."""
     
     games: int = Field(default=5, ge=1, le=20, description="Number of recent games to analyze")
+
+
+class FootballXGResponse(BaseModel):
+    """Expected Goals data response."""
+    
+    id: int
+    understat_match_id: Optional[str] = None
+    home_team: str
+    away_team: str
+    home_xg: float
+    away_xg: float
+    home_goals: int
+    away_goals: int
+    date: Optional[str] = None
+    season: Optional[int] = None
+    created_at: Any = ""
+    
+    model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
+
+
+class FootballXGStandingsResponse(BaseModel):
+    """xG-based league standings response."""
+    
+    team: str
+    matches: int
+    xg_for: float
+    xg_against: float
+    xg_diff: float
+    goals_for: int
+    goals_against: int
+    goal_diff: int
+    overperformance: float
+
+
+class FootballHeadToHeadResponse(BaseModel):
+    """Head-to-head analysis response."""
+    
+    team1: FootballTeamResponse
+    team2: FootballTeamResponse
+    matches: List[FootballFixtureResponse]
+    team1_wins: int
+    team2_wins: int
+    draws: int
+    team1_goals: int
+    team2_goals: int
+    total_matches: int
+
+
+class FootballPredictionResponse(BaseModel):
+    """Match prediction response."""
+    
+    home_team: Dict[str, Any]
+    away_team: Dict[str, Any]
+    predictions: Dict[str, Any]
+    model: str
+    season: int
+
+
+class FootballChartDataResponse(BaseModel):
+    """Chart data response."""
+    
+    matchdays: Optional[List[int]] = None
+    series: List[Dict[str, Any]]
+    teams: Optional[List[Dict[str, Any]]] = None
+    games: Optional[int] = None
+    season: int
+
+
+class FootballTeamXGAnalysisResponse(BaseModel):
+    """Team-specific xG analysis response."""
+    
+    team: FootballTeamResponse
+    season: int
+    matches: int
+    xg_for: float
+    xg_against: float
+    xg_diff: float
+    goals_for: int
+    goals_against: int
+    goal_diff: int
+    overperformance: float
+    xg_per_game: float
+    xa_per_game: float

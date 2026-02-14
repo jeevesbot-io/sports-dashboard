@@ -122,3 +122,42 @@ class FootballPlayerStats(Base):
     
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     # TODO: Add player statistics fields in later phases
+
+
+class FootballXG(Base):
+    """Football Expected Goals (xG) model from Understat."""
+    
+    __tablename__ = "sport_football_xg"
+    
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    
+    # Optional link to our fixture data
+    fixture_id: Mapped[Optional[int]] = mapped_column(
+        Integer,
+        ForeignKey("sport_football_fixtures.id"),
+        nullable=True
+    )
+    
+    # Understat-specific data
+    understat_match_id: Mapped[Optional[str]] = mapped_column(String(50), unique=True, nullable=True)
+    home_team: Mapped[str] = mapped_column(String(100), nullable=False)
+    away_team: Mapped[str] = mapped_column(String(100), nullable=False)
+    
+    # xG values
+    home_xg: Mapped[float] = mapped_column(default=0.0)
+    away_xg: Mapped[float] = mapped_column(default=0.0)
+    
+    # Actual goals
+    home_goals: Mapped[int] = mapped_column(Integer, default=0)
+    away_goals: Mapped[int] = mapped_column(Integer, default=0)
+    
+    # Match info
+    date: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    season: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    
+    # Relationships
+    fixture: Mapped[Optional["FootballFixture"]] = relationship(
+        "FootballFixture",
+        foreign_keys=[fixture_id]
+    )
