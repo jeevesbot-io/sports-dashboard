@@ -3,21 +3,13 @@
  */
 import { createRouter, createWebHistory } from 'vue-router'
 
-// Import views
-import HomeView from '@/views/HomeView.vue'
-import FootballDashboardView from '@/views/football/DashboardView.vue'
-import FootballTeamDetailView from '@/views/football/TeamDetailView.vue'
-import FootballAnalyticsView from '@/views/football/AnalyticsView.vue'
-import CricketDashboardView from '@/views/cricket/DashboardView.vue'
-import RugbyDashboardView from '@/views/rugby/DashboardView.vue'
-
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/',
       name: 'home',
-      component: HomeView,
+      component: () => import('@/views/HomeView.vue'),
       meta: {
         title: 'Sports Dashboard'
       }
@@ -25,7 +17,7 @@ const router = createRouter({
     {
       path: '/football',
       name: 'football-dashboard',
-      component: FootballDashboardView,
+      component: () => import('@/views/football/DashboardView.vue'),
       meta: {
         title: 'Football Dashboard',
         sport: 'football'
@@ -34,7 +26,7 @@ const router = createRouter({
     {
       path: '/football/teams/:id',
       name: 'football-team-detail',
-      component: FootballTeamDetailView,
+      component: () => import('@/views/football/TeamDetailView.vue'),
       meta: {
         title: 'Team Detail',
         sport: 'football'
@@ -44,7 +36,7 @@ const router = createRouter({
     {
       path: '/football/analytics',
       name: 'football-analytics',
-      component: FootballAnalyticsView,
+      component: () => import('@/views/football/AnalyticsView.vue'),
       meta: {
         title: 'Advanced Analytics',
         sport: 'football'
@@ -53,7 +45,7 @@ const router = createRouter({
     {
       path: '/cricket',
       name: 'cricket-dashboard',
-      component: CricketDashboardView,
+      component: () => import('@/views/cricket/DashboardView.vue'),
       meta: {
         title: 'Cricket Dashboard',
         sport: 'cricket',
@@ -63,7 +55,7 @@ const router = createRouter({
     {
       path: '/rugby',
       name: 'rugby-dashboard',
-      component: RugbyDashboardView,
+      component: () => import('@/views/rugby/DashboardView.vue'),
       meta: {
         title: 'Rugby Dashboard',
         sport: 'rugby',

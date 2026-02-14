@@ -39,6 +39,9 @@ class Settings(BaseSettings):
     # Application Configuration
     app_name: str = "Sports Dashboard API"
     app_version: str = "0.1.0"
+
+    # Season Configuration
+    current_season: int = 2025
     
     class Config:
         env_file = ".env"

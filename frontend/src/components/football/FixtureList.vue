@@ -17,7 +17,7 @@
             </div>
             <div class="fixture-match">
               <span class="home-team">{{ fixture.home_team.short_name }}</span>
-              <span class="score">{{ fixture.score.full_time.home_team }} - {{ fixture.score.full_time.away_team }}</span>
+              <span class="score">{{ fixture.home_score }} - {{ fixture.away_score }}</span>
               <span class="away-team">{{ fixture.away_team.short_name }}</span>
             </div>
           </div>
@@ -51,23 +51,10 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-
-interface Fixture {
-  id: number
-  utc_date: string
-  status: string
-  home_team: { short_name: string }
-  away_team: { short_name: string }
-  score: {
-    full_time: {
-      home_team: number | null
-      away_team: number | null
-    }
-  }
-}
+import type { FootballFixture } from '@/types'
 
 interface Props {
-  fixtures: Fixture[]
+  fixtures: FootballFixture[]
 }
 
 const props = defineProps<Props>()
@@ -86,7 +73,7 @@ const upcomingFixtures = computed(() => {
     .slice(0, 10)
 })
 
-const isNewcastleFixture = (fixture: Fixture) => {
+const isNewcastleFixture = (fixture: FootballFixture) => {
   return fixture.home_team.short_name === 'Newcastle' || 
          fixture.away_team.short_name === 'Newcastle'
 }

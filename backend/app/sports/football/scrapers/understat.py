@@ -206,22 +206,19 @@ class UnderstatScraper:
     async def store_xg_data(self, db: AsyncSession, matches: List[Dict[str, Any]]) -> int:
         """
         Store xG data in the database.
-        
+
         Args:
             db: Database session
             matches: List of match data
-            
+
         Returns:
             Number of matches stored
         """
         if not matches:
             return 0
-        
+
         logger.info(f"Storing {len(matches)} xG records")
-        
-        # Create table if it doesn't exist
-        await self._create_xg_table(db)
-        
+
         stored_count = 0
         for match in matches:
             try:
@@ -266,29 +263,6 @@ class UnderstatScraper:
         logger.info(f"Successfully stored {stored_count} new xG records")
         return stored_count
     
-    async def _create_xg_table(self, db: AsyncSession):
-        """Create the xG table if it doesn't exist."""
-        create_table_sql = text("""
-            CREATE TABLE IF NOT EXISTS sport_football_xg (
-                id SERIAL PRIMARY KEY,
-                fixture_id INTEGER REFERENCES sport_football_fixtures(id),
-                understat_match_id VARCHAR(50) UNIQUE,
-                home_team VARCHAR(100) NOT NULL,
-                away_team VARCHAR(100) NOT NULL,
-                home_xg DECIMAL(4,2) DEFAULT 0.0,
-                away_xg DECIMAL(4,2) DEFAULT 0.0,
-                home_goals INTEGER DEFAULT 0,
-                away_goals INTEGER DEFAULT 0,
-                date VARCHAR(50),
-                season INTEGER,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-        
-        await db.execute(create_table_sql)
-        await db.commit()
-
-
 async def ingest_xg_data(db: AsyncSession, season: int = 2025) -> Dict[str, Any]:
     """
     Main ingestion function for xG data.

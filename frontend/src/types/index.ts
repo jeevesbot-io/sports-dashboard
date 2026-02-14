@@ -88,6 +88,80 @@ export interface FootballFormAnalysis {
   recent_fixtures: FootballFixture[]
 }
 
+// xG / Analytics Types
+export interface XGStanding {
+  team: string
+  matches: number
+  xg_for: number
+  xg_against: number
+  xg_diff: number
+  goals_for: number
+  goals_against: number
+  goal_diff: number
+  overperformance: number
+}
+
+export interface HeadToHeadData {
+  team1: FootballTeam
+  team2: FootballTeam
+  matches: FootballFixture[]
+  team1_wins: number
+  team2_wins: number
+  draws: number
+  team1_goals: number
+  team2_goals: number
+  total_matches: number
+}
+
+export interface MatchPrediction {
+  home_team: {
+    name: string
+    id: number
+    attack_strength: number
+    defense_strength: number
+  }
+  away_team: {
+    name: string
+    id: number
+    attack_strength: number
+    defense_strength: number
+  }
+  predictions: {
+    home_xg: number
+    away_xg: number
+    home_win_prob: number
+    draw_prob: number
+    away_win_prob: number
+    most_likely_score: string
+    confidence: number
+  }
+  model: string
+  season: number
+}
+
+export interface TeamXGAnalysis {
+  team: FootballTeam
+  season: number
+  matches: number
+  xg_for: number
+  xg_against: number
+  xg_diff: number
+  goals_for: number
+  goals_against: number
+  goal_diff: number
+  overperformance: number
+  xg_per_game: number
+  xa_per_game: number
+}
+
+export interface ChartData {
+  matchdays?: number[]
+  series?: any[]
+  teams?: any[]
+  games?: number
+  season: number
+}
+
 // Cricket/Rugby Coming Soon Types
 export interface ComingSoonResponse {
   status: string

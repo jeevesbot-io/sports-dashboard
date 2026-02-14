@@ -14,6 +14,7 @@ from .schemas import (
     FootballStandingResponse, FootballFormAnalysis
 )
 from .client import FootballAPIClient
+from ...config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -152,7 +153,7 @@ class FootballService:
     async def get_standings(
         self,
         db: AsyncSession,
-        season: int = 2025,
+        season: Optional[int] = None,
         matchday: Optional[str] = "latest"
     ) -> List[FootballStandingResponse]:
         """
@@ -166,10 +167,12 @@ class FootballService:
         Returns:
             League standings
         """
+        if season is None:
+            season = settings.current_season
         query = select(FootballStanding).options(
             selectinload(FootballStanding.team)
         ).where(FootballStanding.season == season)
-        
+
         if matchday and matchday != "latest":
             try:
                 matchday_int = int(matchday)
@@ -304,7 +307,7 @@ class FootballService:
     ) -> Dict[str, Any]:
         """Calculate team statistics from fixtures and standings."""
         # Get all finished fixtures for this team in current season
-        current_season = 2025  # TODO: Make this dynamic
+        current_season = settings.current_season
         
         fixtures_query = select(FootballFixture).where(
             and_(
@@ -481,7 +484,7 @@ class FootballService:
     async def get_xg_standings(
         self,
         db: AsyncSession,
-        season: int = 2025
+        season: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
         Get xG-based league table.
@@ -493,6 +496,8 @@ class FootballService:
         Returns:
             League table with xG data
         """
+        if season is None:
+            season = settings.current_season
         from .models import FootballXG
         from sqlalchemy import func
         
@@ -577,7 +582,7 @@ class FootballService:
     async def get_xg_overperformers(
         self,
         db: AsyncSession,
-        season: int = 2025,
+        season: Optional[int] = None,
         min_threshold: float = 2.0
     ) -> List[Dict[str, Any]]:
         """
@@ -608,7 +613,7 @@ class FootballService:
         self,
         team_id: int,
         db: AsyncSession,
-        season: int = 2025
+        season: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get xG analysis for a specific team.
@@ -621,15 +626,17 @@ class FootballService:
         Returns:
             Team xG analysis
         """
+        if season is None:
+            season = settings.current_season
         # Get team
         team_result = await db.execute(
             select(FootballTeam).where(FootballTeam.id == team_id)
         )
         team = team_result.scalar_one_or_none()
-        
+
         if not team:
             return None
-        
+
         from .models import FootballXG
         from sqlalchemy import func
         
@@ -700,7 +707,7 @@ class FootballService:
     async def get_points_progression(
         self,
         db: AsyncSession,
-        season: int = 2025
+        season: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Get cumulative points progression for all teams by matchday.
@@ -712,6 +719,8 @@ class FootballService:
         Returns:
             Points progression data
         """
+        if season is None:
+            season = settings.current_season
         # Get all standings data ordered by matchday
         standings_query = select(FootballStanding).options(
             selectinload(FootballStanding.team)
@@ -764,7 +773,7 @@ class FootballService:
         self,
         db: AsyncSession,
         games: int = 10,
-        season: int = 2025
+        season: Optional[int] = None
     ) -> Dict[str, Any]:
         """
         Get form heatmap data for all teams.
@@ -777,6 +786,8 @@ class FootballService:
         Returns:
             Form heatmap data
         """
+        if season is None:
+            season = settings.current_season
         # Get all teams
         teams_result = await db.execute(select(FootballTeam))
         teams = list(teams_result.scalars().all())

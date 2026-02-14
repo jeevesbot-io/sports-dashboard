@@ -16,16 +16,17 @@ cd backend && source .venv/bin/activate && python app/main.py
 # Or: uvicorn app.main:app --reload --port 5060
 
 # Run all tests
-cd backend && source .venv/bin/activate && pytest tests/
+cd backend && source .venv/bin/activate && python -m pytest tests/ -v --asyncio-mode=auto
 
 # Run a single test file
-pytest backend/tests/test_football_service.py
+cd backend && source .venv/bin/activate && python -m pytest tests/test_football_service.py
 
 # Run a specific test
-pytest backend/tests/test_football_service.py::test_name -v
+cd backend && source .venv/bin/activate && python -m pytest tests/test_football_service.py::test_name -v
 
-# Tests use async mode — add --asyncio-mode=auto if needed
+# Tests use async mode — always pass --asyncio-mode=auto
 # Tests use in-memory SQLite (no Postgres required)
+# httpx test client uses ASGITransport (see conftest.py)
 
 # Install dependencies
 cd backend && pip install -r requirements.txt
@@ -40,11 +41,13 @@ cd backend && alembic upgrade head
 cd frontend
 
 npm run dev          # Vite dev server on localhost:5173
-npm run build        # Type-check + production build
+npm run build        # Type-check + production build (vue-tsc requires compatible Node)
 npm run lint         # ESLint with auto-fix (.vue, .ts, .tsx, .js, .jsx)
-npm run type-check   # vue-tsc --noEmit
+npm run type-check   # vue-tsc --noEmit (requires Node <25 due to vue-tsc compat)
 npm run preview      # Preview production build
 ```
+
+**Note:** `vue-tsc` is incompatible with Node.js 25+. Use `npx vite build` to verify compilation without the vue-tsc step, or use Node 20/22 LTS for full type-checking.
 
 ## Architecture
 
@@ -63,8 +66,8 @@ FastAPI app with fully async SQLAlchemy + PostgreSQL (asyncpg). Entry point is `
 - `predictions.py` — Poisson model match predictions
 
 **Key wiring:**
-- `config.py` — Pydantic `Settings` class, reads from `.env` (see `.env.example`)
-- `db.py` — Async engine/session setup; `get_db` dependency for injection
+- `config.py` — Pydantic `Settings` class, reads from `.env` (see `.env.example`). Contains `current_season` setting used by all service methods.
+- `db.py` — Async engine/session setup; `get_db` dependency for injection. `Base` model provides `created_at`/`updated_at` columns — child models should NOT redefine them.
 - `common/schemas.py` — `StandardResponse` wrapper used by all endpoints
 - `common/dependencies.py` — Shared FastAPI dependencies (pagination, validation)
 - CORS allows localhost ports 3000, 5173-5175, 8080
@@ -77,12 +80,17 @@ FastAPI app with fully async SQLAlchemy + PostgreSQL (asyncpg). Entry point is `
 Vue 3 with Composition API (`<script setup>`), TypeScript strict mode, Pinia for state, Vue Router with lazy-loaded routes, PrimeVue components, and ECharts (via vue-echarts) for visualization.
 
 **Key structure:**
-- `api/index.ts` — Axios client with logging interceptors; proxied to backend via Vite config
-- `stores/football.ts` — Pinia store: teams, standings, fixtures, form analysis
+- `api/index.ts` — **Single Axios API client** for all backend calls (core + analytics). All methods unwrap `StandardResponse` and return typed data. There is no second API client — do NOT create `services/api.ts`.
+- `stores/football.ts` — Pinia store: teams, standings, fixtures, form analysis. Uses `api/index.ts` for data fetching.
 - `views/football/` — Dashboard, TeamDetail, Analytics pages
-- `components/football/` — Chart components (XgChart, FormHeatmap, PointsProgression, etc.)
-- `types/index.ts` — Shared TypeScript interfaces
+- `components/football/` — Chart components (XgChart, FormHeatmap, PointsProgression, etc.), HeadToHead, MatchPredictor, FixtureList
+- `types/index.ts` — Shared TypeScript interfaces including analytics types (XGStanding, HeadToHeadData, MatchPrediction, TeamXGAnalysis, ChartData)
 - Path alias: `@/` maps to `src/`
+
+**API client patterns:**
+- Pinia store methods call `apiClient.getFootball*()` which return unwrapped data (e.g., `FootballTeam[]`)
+- Analytics components call `apiClient.getXGStandings()` etc. which return `StandardResponse<T>` — access `.data` for the payload, `.message` for metadata
+- Never create a second API client or use raw `fetch()` — all calls go through `api/index.ts`
 
 ### Data Flow
 
@@ -90,19 +98,33 @@ Vue 3 with Composition API (`<script setup>`), TypeScript strict mode, Pinia for
 Vue component → Pinia store action → Axios → FastAPI router → Service layer → SQLAlchemy → PostgreSQL
 ```
 
+For analytics views (AnalyticsView, HeadToHead, MatchPredictor), components call `api/index.ts` directly instead of going through the Pinia store.
+
 External data comes in via `POST /api/football/ingest` (Football Data API) and `POST /api/football/ingest-xg` (Understat scraper).
 
 ## Testing
 
-Backend tests use `pytest` + `pytest-asyncio` with in-memory SQLite via `aiosqlite`. The test `conftest.py` provides async fixtures for engine, session, and an `httpx.AsyncClient` that overrides the `get_db` dependency. No external services or Postgres needed for tests.
+Backend tests use `pytest` + `pytest-asyncio` with in-memory SQLite via `aiosqlite`. The test `conftest.py` provides async fixtures for engine, session, and an `httpx.AsyncClient` (via `ASGITransport`) that overrides the `get_db` dependency. No external services or Postgres needed for tests.
+
+Always run tests with: `python -m pytest tests/ -v --asyncio-mode=auto`
 
 ## Environment
 
 Backend requires a `.env` file in `backend/` (template: `.env.example`). Key variables:
 - `DATABASE_URL` — PostgreSQL connection string (default: `postgresql+asyncpg://jeeves@localhost/jeeves`)
 - `FOOTBALL_DATA_API_KEY` — API key for football-data.org (optional for basic dev)
+- `CURRENT_SEASON` — Season year (default: 2025)
+
+Frontend has an optional `.env` file (template: `frontend/.env.example`):
+- `VITE_API_BASE_URL` — Backend URL (default: `http://localhost:5060`)
 
 ## Git
 
 - `main` branch is the PR target
 - Current development is on `dev`
+
+## Known Limitations
+
+- **PointsProgressionChart** uses simplified linear interpolation when rendered from the Dashboard (standings-based). The backend `GET /api/football/charts/points-progression` endpoint provides real matchday-by-matchday data — wire this up for accurate charts.
+- **Understat scraper** falls back to mock data when scraping fails. The xG standings endpoint includes "mock" in the response message when mock data is detected. The frontend AnalyticsView shows a "Mock Data" tag when this is detected.
+- **Form heatmap N+1 queries** — `get_form_heatmap()` calls `get_team_form()` per team. For production, batch-load all fixtures in one query and compute form in-memory.

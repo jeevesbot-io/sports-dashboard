@@ -200,10 +200,9 @@ const handleImageError = (event: Event) => {
 
 onMounted(async () => {
   await store.fetchStandings()
-  // Try to fetch fixtures, but don't fail if endpoint has issues
+  // Fetch all fixtures in one call — FixtureList splits by status internally
   try {
-    await store.fetchFixtures({ status: 'FINISHED', limit: 10 })
-    await store.fetchFixtures({ status: 'SCHEDULED', limit: 10 })
+    await store.fetchFixtures({ limit: 50 })
   } catch (error) {
     console.warn('Could not fetch fixtures:', error)
   }

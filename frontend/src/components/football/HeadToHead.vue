@@ -223,30 +223,12 @@ import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 
 // Services
-import { footballApi } from '@/services/api'
-
-// Types
-interface Team {
-  id: number
-  name: string
-  short_name: string
-}
-
-interface HeadToHeadData {
-  team1: Team
-  team2: Team
-  matches: any[]
-  team1_wins: number
-  team2_wins: number
-  draws: number
-  team1_goals: number
-  team2_goals: number
-  total_matches: number
-}
+import apiClient from '@/api'
+import type { FootballTeam, HeadToHeadData } from '@/types'
 
 // Reactive state
 const toast = useToast()
-const teams = ref<Team[]>([])
+const teams = ref<FootballTeam[]>([])
 const selectedTeam1 = ref<string>('')
 const selectedTeam2 = ref<string>('')
 const h2hData = ref<HeadToHeadData | null>(null)
@@ -284,8 +266,7 @@ const averageGoalsPerGame = computed(() => {
 const loadTeams = async () => {
   loadingTeams.value = true
   try {
-    const response = await footballApi.getTeams()
-    teams.value = response.data.data || []
+    teams.value = await apiClient.getFootballTeams()
   } catch (error) {
     console.error('Error loading teams:', error)
     toast.add({
@@ -307,8 +288,8 @@ const loadHeadToHead = async () => {
   h2hData.value = null
 
   try {
-    const response = await footballApi.getHeadToHead(selectedTeam1.value, selectedTeam2.value)
-    h2hData.value = response.data.data
+    const response = await apiClient.getHeadToHead(selectedTeam1.value, selectedTeam2.value)
+    h2hData.value = response.data || null
   } catch (error) {
     console.error('Error loading head-to-head:', error)
     toast.add({

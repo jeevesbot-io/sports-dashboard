@@ -15,11 +15,31 @@ logger = logging.getLogger(__name__)
 
 class PoissonPredictor:
     """Poisson-based match outcome predictor."""
-    
+
     def __init__(self, season: int = 2025):
         self.season = season
-        self.league_avg_goals = 2.5  # Premier League average
-        
+        self.league_avg_goals = 2.5  # fallback, computed from data if available
+
+    async def _compute_league_avg_goals(self, db: AsyncSession) -> float:
+        """Compute average goals per team per game from actual fixture data."""
+        total_goals_query = select(
+            func.sum(FootballFixture.home_score + FootballFixture.away_score).label('total_goals'),
+            func.count().label('match_count')
+        ).where(
+            and_(
+                FootballFixture.season == self.season,
+                FootballFixture.status == "FINISHED",
+                FootballFixture.home_score.isnot(None),
+                FootballFixture.away_score.isnot(None)
+            )
+        )
+        result = await db.execute(total_goals_query)
+        row = result.first()
+        if row and row.match_count and row.match_count > 0:
+            # Average goals per team per game = total goals / (2 * matches)
+            return float(row.total_goals) / (2 * int(row.match_count))
+        return 2.5  # fallback
+
     async def predict_match(
         self,
         home_team_name: str,
@@ -28,16 +48,19 @@ class PoissonPredictor:
     ) -> Dict[str, Any]:
         """
         Predict match outcome using Poisson distribution.
-        
+
         Args:
             home_team_name: Home team name
             away_team_name: Away team name
             db: Database session
-            
+
         Returns:
             Match prediction with probabilities
         """
         logger.info(f"Predicting {home_team_name} vs {away_team_name}")
+
+        # Compute league average from actual data
+        self.league_avg_goals = await self._compute_league_avg_goals(db)
         
         # Get teams
         home_team = await self._get_team_by_name(home_team_name, db)
@@ -261,7 +284,7 @@ async def predict_match_outcome(
     home_team: str,
     away_team: str,
     db: AsyncSession,
-    season: int = 2025
+    season: int = 2025  # router passes season explicitly
 ) -> Dict[str, Any]:
     """
     Convenience function for match prediction.

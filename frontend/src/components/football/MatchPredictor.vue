@@ -216,44 +216,15 @@ import Dropdown from 'primevue/dropdown'
 import ProgressBar from 'primevue/progressbar'
 
 // Services
-import { footballApi } from '@/services/api'
-
-// Types
-interface Team {
-  id: number
-  name: string
-  short_name: string
-}
-
-interface TeamPrediction {
-  name: string
-  id: number
-  attack_strength: number
-  defense_strength: number
-}
-
-interface Prediction {
-  home_team: TeamPrediction
-  away_team: TeamPrediction
-  predictions: {
-    home_xg: number
-    away_xg: number
-    home_win_prob: number
-    draw_prob: number
-    away_win_prob: number
-    most_likely_score: string
-    confidence: number
-  }
-  model: string
-  season: number
-}
+import apiClient from '@/api'
+import type { FootballTeam, MatchPrediction } from '@/types'
 
 // Reactive state
 const toast = useToast()
-const teams = ref<Team[]>([])
+const teams = ref<FootballTeam[]>([])
 const homeTeam = ref<string>('')
 const awayTeam = ref<string>('')
-const prediction = ref<Prediction | null>(null)
+const prediction = ref<MatchPrediction | null>(null)
 const loading = ref(false)
 const loadingTeams = ref(false)
 const predictionAttempted = ref(false)
@@ -268,8 +239,7 @@ const canPredict = computed(() => {
 const loadTeams = async () => {
   loadingTeams.value = true
   try {
-    const response = await footballApi.getTeams()
-    teams.value = response.data.data || []
+    teams.value = await apiClient.getFootballTeams()
   } catch (error) {
     console.error('Error loading teams:', error)
     toast.add({
@@ -291,8 +261,8 @@ const predictMatch = async () => {
   prediction.value = null
 
   try {
-    const response = await footballApi.predictMatch(homeTeam.value, awayTeam.value)
-    prediction.value = response.data.data
+    const response = await apiClient.predictMatch(homeTeam.value, awayTeam.value)
+    prediction.value = response.data || null
 
     toast.add({
       severity: 'success',

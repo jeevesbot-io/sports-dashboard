@@ -5,6 +5,7 @@ import logging
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from ...db import get_db
 from ...common.schemas import StandardResponse
@@ -336,15 +337,27 @@ async def get_xg_standings(
     """
     try:
         xg_standings = await football_service.get_xg_standings(db, season)
-        
+
         response_data = [
-            FootballXGStandingsResponse(**standing) 
+            FootballXGStandingsResponse(**standing)
             for standing in xg_standings
         ]
-        
+
+        # Check if data includes mock records
+        from .models import FootballXG
+        mock_check = await db.execute(
+            select(FootballXG.understat_match_id)
+            .where(FootballXG.understat_match_id.like("mock_%"))
+            .limit(1)
+        )
+        is_mock = mock_check.scalar_one_or_none() is not None
+        msg = f"Retrieved xG standings for season {season}"
+        if is_mock:
+            msg += " (includes mock data)"
+
         return StandardResponse(
             data=response_data,
-            message=f"Retrieved xG standings for season {season}"
+            message=msg
         )
     except Exception as e:
         logger.error(f"Error fetching xG standings: {e}")

@@ -163,20 +163,8 @@ import PointsProgressionChart from '@/components/football/PointsProgressionChart
 import FormHeatmapChart from '@/components/football/FormHeatmapChart.vue'
 
 // Services
-import { footballApi } from '@/services/api'
-
-// Types
-interface XGStanding {
-  team: string
-  matches: number
-  xg_for: number
-  xg_against: number
-  xg_diff: number
-  goals_for: number
-  goals_against: number
-  goal_diff: number
-  overperformance: number
-}
+import apiClient from '@/api'
+import type { XGStanding } from '@/types'
 
 // Reactive state
 const toast = useToast()
@@ -224,12 +212,12 @@ const refreshData = async () => {
 const loadXGStandings = async () => {
   loadingXG.value = true
   try {
-    const response = await footballApi.getXGStandings()
-    xgStandings.value = response.data.data || []
-    
+    const response = await apiClient.getXGStandings()
+    xgStandings.value = response.data || []
+
     // Check if mock data is being used
-    mockDataUsed.value = response.data.data?.length > 0 && 
-                        response.data.message?.includes('mock')
+    mockDataUsed.value = (response.data?.length ?? 0) > 0 &&
+                        (response.message?.includes('mock') ?? false)
   } catch (error) {
     console.error('Error loading xG standings:', error)
     toast.add({
@@ -245,8 +233,8 @@ const loadXGStandings = async () => {
 
 const loadOverperformers = async () => {
   try {
-    const response = await footballApi.getXGOverperformers()
-    overperformers.value = response.data.data || []
+    const response = await apiClient.getXGOverperformers()
+    overperformers.value = response.data || []
   } catch (error) {
     console.error('Error loading overperformers:', error)
   }
@@ -255,16 +243,16 @@ const loadOverperformers = async () => {
 const ingestXGData = async () => {
   ingesting.value = true
   try {
-    const response = await footballApi.ingestXGData()
-    
-    if (response.data.success) {
+    const response = await apiClient.ingestXGData()
+
+    if (response.success) {
       toast.add({
         severity: 'success',
         summary: 'xG Data Updated',
-        detail: `Processed ${response.data.data.stored_matches} matches`,
+        detail: `Processed ${(response.data as any)?.stored_matches ?? 0} matches`,
         life: 5000
       })
-      
+
       // Refresh the data after ingestion
       await loadXGStandings()
       await loadOverperformers()

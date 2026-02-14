@@ -13,7 +13,12 @@ import type {
   FootballFixturesParams,
   FootballTeamFormParams,
   ComingSoonResponse,
-  ApiClientConfig
+  ApiClientConfig,
+  XGStanding,
+  HeadToHeadData,
+  MatchPrediction,
+  TeamXGAnalysis,
+  ChartData
 } from '@/types'
 
 class ApiClient {
@@ -103,6 +108,64 @@ class ApiClient {
     const response: AxiosResponse<StandardResponse<FootballStanding[]>> = 
       await this.client.get('/api/football/standings', { params })
     return response.data.data || []
+  }
+
+  // Analytics API methods
+
+  async getXGStandings(season: number = 2025): Promise<StandardResponse<XGStanding[]>> {
+    const response: AxiosResponse<StandardResponse<XGStanding[]>> =
+      await this.client.get('/api/football/xg/standings', { params: { season } })
+    return response.data
+  }
+
+  async getXGOverperformers(season: number = 2025, threshold: number = 2.0): Promise<StandardResponse<XGStanding[]>> {
+    const response: AxiosResponse<StandardResponse<XGStanding[]>> =
+      await this.client.get('/api/football/xg/overperformers', { params: { season, threshold } })
+    return response.data
+  }
+
+  async getHeadToHead(team1: string, team2: string, season?: number): Promise<StandardResponse<HeadToHeadData>> {
+    const params: Record<string, any> = { team1, team2 }
+    if (season) params.season = season
+    const response: AxiosResponse<StandardResponse<HeadToHeadData>> =
+      await this.client.get('/api/football/head-to-head', { params })
+    return response.data
+  }
+
+  async predictMatch(home: string, away: string, season: number = 2025): Promise<StandardResponse<MatchPrediction>> {
+    const response: AxiosResponse<StandardResponse<MatchPrediction>> =
+      await this.client.get('/api/football/predict', { params: { home, away, season } })
+    return response.data
+  }
+
+  async getTeamXGAnalysis(teamId: number, season: number = 2025): Promise<StandardResponse<TeamXGAnalysis>> {
+    const response: AxiosResponse<StandardResponse<TeamXGAnalysis>> =
+      await this.client.get(`/api/football/teams/${teamId}/xg`, { params: { season } })
+    return response.data
+  }
+
+  async getPointsProgression(season: number = 2025): Promise<StandardResponse<ChartData>> {
+    const response: AxiosResponse<StandardResponse<ChartData>> =
+      await this.client.get('/api/football/charts/points-progression', { params: { season } })
+    return response.data
+  }
+
+  async getFormHeatmap(games: number = 10, season: number = 2025): Promise<StandardResponse<ChartData>> {
+    const response: AxiosResponse<StandardResponse<ChartData>> =
+      await this.client.get('/api/football/charts/form-heatmap', { params: { games, season } })
+    return response.data
+  }
+
+  async ingestData(season: number = 2025): Promise<StandardResponse> {
+    const response: AxiosResponse<StandardResponse> =
+      await this.client.post('/api/football/ingest', null, { params: { season } })
+    return response.data
+  }
+
+  async ingestXGData(season: number = 2025): Promise<StandardResponse> {
+    const response: AxiosResponse<StandardResponse> =
+      await this.client.post('/api/football/ingest-xg', null, { params: { season } })
+    return response.data
   }
 
   // Cricket API methods

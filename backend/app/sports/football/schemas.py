@@ -1,7 +1,7 @@
 """
 Football Pydantic schemas for API responses.
 """
-from typing import Optional, List, Any
+from typing import Optional, List, Any, Dict
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from datetime import datetime
 
@@ -144,7 +144,7 @@ class FootballFormAnalysis(BaseModel):
 class FootballStandingsParams(BaseModel):
     """Parameters for standings request."""
     
-    season: int = Field(default=2025, ge=2000, le=2030)
+    season: int = Field(default=2025, ge=2000, le=2030)  # overridden at runtime by settings.current_season
     matchday: Optional[str] = Field(default="latest", description="Matchday number or 'latest'")
 
 
@@ -226,9 +226,9 @@ class FootballPredictionResponse(BaseModel):
 
 class FootballChartDataResponse(BaseModel):
     """Chart data response."""
-    
+
     matchdays: Optional[List[int]] = None
-    series: List[Dict[str, Any]]
+    series: Optional[List[Dict[str, Any]]] = None
     teams: Optional[List[Dict[str, Any]]] = None
     games: Optional[int] = None
     season: int
