@@ -1,0 +1,1 @@
+"""Rugby module (coming soon)."""

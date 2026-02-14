@@ -1,0 +1,1 @@
+"""Cricket module (coming soon)."""

@@ -1,0 +1,1 @@
+"""Football module for Premier League data and analytics."""
