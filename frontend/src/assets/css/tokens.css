@@ -1,0 +1,93 @@
+/* Design Tokens — CSS Custom Properties */
+
+:root {
+  /* Accent Colors (constant across themes) */
+  --sd-accent-cyan: #06b6d4;
+  --sd-accent-violet: #8b5cf6;
+  --sd-accent-gradient: linear-gradient(135deg, #06b6d4, #8b5cf6);
+  --sd-accent-gradient-hover: linear-gradient(135deg, #22d3ee, #a78bfa);
+
+  /* Semantic Colors */
+  --sd-win: #10b981;
+  --sd-draw: #f59e0b;
+  --sd-loss: #ef4444;
+  --sd-live: #ef4444;
+
+  /* Newcastle */
+  --sd-newcastle-gold: #c8a84e;
+
+  /* Stat Card Gradients */
+  --sd-gradient-1: linear-gradient(135deg, #6366f1, #8b5cf6);
+  --sd-gradient-2: linear-gradient(135deg, #ec4899, #f43f5e);
+  --sd-gradient-3: linear-gradient(135deg, #3b82f6, #06b6d4);
+  --sd-gradient-4: linear-gradient(135deg, #f59e0b, #ef4444);
+
+  /* Chart Palette */
+  --sd-chart-1: #06b6d4;
+  --sd-chart-2: #8b5cf6;
+  --sd-chart-3: #f59e0b;
+  --sd-chart-4: #ef4444;
+  --sd-chart-5: #10b981;
+  --sd-chart-6: #ec4899;
+  --sd-chart-7: #3b82f6;
+  --sd-chart-8: #f97316;
+
+  /* Glass Effect */
+  --sd-glass-border: rgba(255, 255, 255, 0.08);
+  --sd-glass-blur: 20px;
+}
+
+/* Dark Theme (default) */
+:root.dark,
+:root:not(.light) {
+  --sd-surface-0: #0a0a0f;
+  --sd-surface-50: #0f1117;
+  --sd-surface-100: #161822;
+  --sd-surface-200: #1e2030;
+  --sd-surface-300: #282a3a;
+  --sd-surface-400: #3b3d50;
+  --sd-surface-500: #555770;
+  --sd-surface-600: #8b8da3;
+  --sd-surface-700: #b0b2c3;
+  --sd-surface-800: #d4d5e0;
+  --sd-surface-900: #e8e9f0;
+  --sd-surface-950: #f4f5f8;
+
+  --sd-glass-bg: rgba(22, 24, 34, 0.7);
+  --sd-glass-bg-elevated: rgba(30, 32, 48, 0.8);
+  --sd-glass-border: rgba(255, 255, 255, 0.08);
+  --sd-glass-shadow: rgba(0, 0, 0, 0.3);
+
+  --sd-text-primary: #f4f5f8;
+  --sd-text-secondary: #b0b2c3;
+  --sd-text-muted: #555770;
+
+  color-scheme: dark;
+}
+
+/* Light Theme */
+:root.light {
+  --sd-surface-0: #ffffff;
+  --sd-surface-50: #f8f9fc;
+  --sd-surface-100: #f0f2f7;
+  --sd-surface-200: #e5e7ef;
+  --sd-surface-300: #d4d5e0;
+  --sd-surface-400: #b0b2c3;
+  --sd-surface-500: #8b8da3;
+  --sd-surface-600: #555770;
+  --sd-surface-700: #3b3d50;
+  --sd-surface-800: #1e2030;
+  --sd-surface-900: #0f1117;
+  --sd-surface-950: #0a0a0f;
+
+  --sd-glass-bg: rgba(255, 255, 255, 0.7);
+  --sd-glass-bg-elevated: rgba(255, 255, 255, 0.85);
+  --sd-glass-border: rgba(0, 0, 0, 0.08);
+  --sd-glass-shadow: rgba(0, 0, 0, 0.08);
+
+  --sd-text-primary: #0f1117;
+  --sd-text-secondary: #3b3d50;
+  --sd-text-muted: #8b8da3;
+
+  color-scheme: light;
+}

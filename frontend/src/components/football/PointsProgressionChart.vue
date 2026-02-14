@@ -1,20 +1,28 @@
 <template>
   <div class="points-progression-chart">
-    <h3>Points Progression - Top 6 Teams</h3>
-    <VChart 
-      :option="chartOption" 
-      :style="{ height: '400px', width: '100%' }"
+    <div v-if="loading" class="text-center py-8 text-[var(--sd-text-muted)]">Loading chart data...</div>
+    <div v-else-if="error" class="text-center py-8 text-[var(--sd-loss)]">{{ error }}</div>
+    <VChart
+      v-show="!loading && !error"
+      :option="chartOption"
+      :style="{ height: (height || 400) + 'px', width: '100%' }"
       autoresize
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import type { EChartsOption } from 'echarts'
+import apiClient from '@/api'
+import { useChartTheme } from '@/composables/useChartTheme'
+import { tooltipConfig, CHART_ANIMATION } from '@/utils/chartTheme'
+
+const { isDark, chartColors } = useChartTheme()
 
 interface Props {
-  standings: Array<{
+  useApi?: boolean
+  standings?: Array<{
     position: number
     points: number
     played: number
@@ -22,38 +30,136 @@ interface Props {
       short_name: string
     }
   }>
+  height?: number
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  useApi: true,
+  standings: () => [],
+  height: 400
+})
+
+const emit = defineEmits<{
+  error: [error: any]
+}>()
+
+const loading = ref(false)
+const error = ref('')
+const apiMatchdays = ref<number[]>([])
+const apiSeries = ref<any[]>([])
+
+const loadFromApi = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const response = await apiClient.getPointsProgression()
+    const data = response.data
+    if (data) {
+      apiMatchdays.value = data.matchdays || []
+      apiSeries.value = data.series || []
+    }
+  } catch (e: any) {
+    error.value = 'Failed to load points progression data'
+    emit('error', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(() => {
+  if (props.useApi) {
+    loadFromApi()
+  }
+})
+
+watch(() => props.useApi, (val) => {
+  if (val) loadFromApi()
+})
 
 const chartOption = computed<EChartsOption>(() => {
-  // For now, create a simple visualization using current points and games played
-  // This would be replaced with actual matchday-by-matchday data from backend
+  if (props.useApi && apiSeries.value.length > 0) {
+    return buildApiChart()
+  }
+  return buildStandingsChart()
+})
+
+function buildApiChart(): EChartsOption {
+  // Select top 6 by final points + always include Newcastle
+  const sorted = [...apiSeries.value].sort((a, b) => {
+    const aLast = a.data?.length ? a.data[a.data.length - 1]?.points ?? 0 : 0
+    const bLast = b.data?.length ? b.data[b.data.length - 1]?.points ?? 0 : 0
+    return bLast - aLast
+  })
+
+  const top6 = sorted.slice(0, 6)
+  const newcastleInTop6 = top6.some((s: any) =>
+    s.name === 'Newcastle United' || s.name === 'Newcastle'
+  )
+
+  let teamsToShow = [...top6]
+  if (!newcastleInTop6) {
+    const newcastle = sorted.find((s: any) =>
+      s.name === 'Newcastle United' || s.name === 'Newcastle'
+    )
+    if (newcastle) teamsToShow.push(newcastle)
+  }
+
+  const seriesColors = chartColors.value.series
+  let colorIdx = 0
+
+  const series = teamsToShow.map((team: any) => {
+    const isNewcastle = team.name === 'Newcastle United' || team.name === 'Newcastle'
+    const pointsData = (team.data || []).map((d: any) => d.points ?? d)
+    const color = isNewcastle ? chartColors.value.accent : seriesColors[colorIdx++ % seriesColors.length]
+
+    return {
+      name: team.name,
+      type: 'line',
+      data: pointsData,
+      lineStyle: {
+        width: isNewcastle ? 4 : 2,
+        color
+      },
+      itemStyle: { color },
+      emphasis: {
+        lineStyle: { width: isNewcastle ? 5 : 3 }
+      },
+      smooth: true,
+      connectNulls: false
+    }
+  })
+
+  return buildChartConfig(
+    apiMatchdays.value,
+    teamsToShow.map((t: any) => t.name),
+    series
+  )
+}
+
+function buildStandingsChart(): EChartsOption {
   const top6Teams = props.standings.slice(0, 6)
   const newcastleInTop6 = top6Teams.find(t => t.team.short_name === 'Newcastle')
-  
-  // If Newcastle isn't in top 6, include them
+
   let teamsToShow = [...top6Teams]
   if (!newcastleInTop6) {
     const newcastle = props.standings.find(t => t.team.short_name === 'Newcastle')
-    if (newcastle) {
-      teamsToShow.push(newcastle)
-    }
+    if (newcastle) teamsToShow.push(newcastle)
   }
 
-  // Generate simplified progression data (this would come from API in real implementation)
-  const maxMatchday = Math.max(...props.standings.map(s => s.played))
+  const maxMatchday = Math.max(...props.standings.map(s => s.played), 1)
   const matchdays = Array.from({ length: maxMatchday }, (_, i) => i + 1)
-  
+
+  const seriesColors = chartColors.value.series
+  let colorIdx = 0
+
   const series = teamsToShow.map(team => {
     const isNewcastle = team.team.short_name === 'Newcastle'
-    
-    // Simplified: assume linear progression (in reality would be actual match results)
-    const pointsPerGame = team.points / team.played
+    const pointsPerGame = team.played > 0 ? team.points / team.played : 0
     const progressionData = matchdays.map(matchday => {
       if (matchday > team.played) return null
       return Math.round(pointsPerGame * matchday)
     })
+    const color = isNewcastle ? chartColors.value.accent : seriesColors[colorIdx++ % seriesColors.length]
 
     return {
       name: team.team.short_name,
@@ -61,108 +167,60 @@ const chartOption = computed<EChartsOption>(() => {
       data: progressionData,
       lineStyle: {
         width: isNewcastle ? 4 : 2,
-        color: isNewcastle ? '#f0f0f0' : undefined
+        color
       },
-      itemStyle: {
-        color: isNewcastle ? '#f0f0f0' : undefined
-      },
+      itemStyle: { color },
       emphasis: {
-        lineStyle: {
-          width: isNewcastle ? 5 : 3
-        }
+        lineStyle: { width: isNewcastle ? 5 : 3 }
       },
       smooth: true,
       connectNulls: false
     }
   })
 
+  return buildChartConfig(
+    matchdays,
+    teamsToShow.map(t => t.team.short_name),
+    series
+  )
+}
+
+function buildChartConfig(matchdays: number[], teamNames: string[], series: any[]): EChartsOption {
   return {
-    title: {
-      text: 'Cumulative Points Over Season',
-      left: 'center',
-      textStyle: {
-        color: '#f0f0f0',
-        fontSize: 16
-      }
-    },
     tooltip: {
       trigger: 'axis',
-      backgroundColor: '#1a1a1a',
-      borderColor: '#333',
-      textStyle: {
-        color: '#f0f0f0'
-      },
-      axisPointer: {
-        type: 'line',
-        lineStyle: {
-          color: '#666'
-        }
-      }
+      ...tooltipConfig(isDark.value),
+      axisPointer: { type: 'line', lineStyle: { color: chartColors.value.axis } }
     },
     legend: {
-      data: teamsToShow.map(t => t.team.short_name),
-      top: 35,
-      textStyle: {
-        color: '#888'
-      },
+      data: teamNames,
+      top: 5,
+      textStyle: { color: chartColors.value.text },
       type: 'scroll'
     },
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '3%',
-      top: '80px',
+      left: '3%', right: '4%', bottom: '3%', top: '50px',
       containLabel: true
     },
     xAxis: {
       type: 'category',
       data: matchdays,
       name: 'Matchday',
-      nameTextStyle: {
-        color: '#888'
-      },
-      axisLabel: {
-        color: '#888'
-      },
-      axisLine: {
-        lineStyle: {
-          color: '#333'
-        }
-      },
-      splitLine: {
-        show: false
-      }
+      nameTextStyle: { color: chartColors.value.axisLabel },
+      axisLabel: { color: chartColors.value.axisLabel },
+      axisLine: { lineStyle: { color: chartColors.value.axis } },
+      splitLine: { show: false }
     },
     yAxis: {
       type: 'value',
       name: 'Points',
-      nameTextStyle: {
-        color: '#888'
-      },
-      axisLabel: {
-        color: '#888'
-      },
-      axisLine: {
-        lineStyle: {
-          color: '#333'
-        }
-      },
-      splitLine: {
-        lineStyle: {
-          color: '#222'
-        }
-      }
+      nameTextStyle: { color: chartColors.value.axisLabel },
+      axisLabel: { color: chartColors.value.axisLabel },
+      axisLine: { lineStyle: { color: chartColors.value.axis } },
+      splitLine: { lineStyle: { color: chartColors.value.gridLine } }
     },
-    series: series
+    series,
+    ...CHART_ANIMATION
   }
-})
-</script>
-
-<style scoped>
-.points-progression-chart h3 {
-  margin: 0 0 1rem 0;
-  color: #f0f0f0;
-  font-size: 1.1rem;
-  text-align: center;
 }
-</style>
+</script>

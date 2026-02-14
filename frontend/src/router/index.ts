@@ -11,7 +11,9 @@ const router = createRouter({
       name: 'home',
       component: () => import('@/views/HomeView.vue'),
       meta: {
-        title: 'Sports Dashboard'
+        title: 'Sports Dashboard',
+        icon: 'pi pi-home',
+        label: 'Home'
       }
     },
     {
@@ -20,7 +22,9 @@ const router = createRouter({
       component: () => import('@/views/football/DashboardView.vue'),
       meta: {
         title: 'Football Dashboard',
-        sport: 'football'
+        sport: 'football',
+        icon: 'pi pi-th-large',
+        label: 'Dashboard'
       }
     },
     {
@@ -29,7 +33,9 @@ const router = createRouter({
       component: () => import('@/views/football/TeamDetailView.vue'),
       meta: {
         title: 'Team Detail',
-        sport: 'football'
+        sport: 'football',
+        icon: 'pi pi-users',
+        label: 'Team Detail'
       },
       props: true
     },
@@ -39,7 +45,9 @@ const router = createRouter({
       component: () => import('@/views/football/AnalyticsView.vue'),
       meta: {
         title: 'Advanced Analytics',
-        sport: 'football'
+        sport: 'football',
+        icon: 'pi pi-chart-bar',
+        label: 'Analytics'
       }
     },
     {
@@ -49,7 +57,9 @@ const router = createRouter({
       meta: {
         title: 'Cricket Dashboard',
         sport: 'cricket',
-        comingSoon: true
+        comingSoon: true,
+        icon: 'pi pi-circle',
+        label: 'Cricket'
       }
     },
     {
@@ -59,7 +69,9 @@ const router = createRouter({
       meta: {
         title: 'Rugby Dashboard',
         sport: 'rugby',
-        comingSoon: true
+        comingSoon: true,
+        icon: 'pi pi-circle',
+        label: 'Rugby'
       }
     },
     // Redirect for backwards compatibility
@@ -84,7 +96,7 @@ router.beforeEach((to, from, next) => {
   } else {
     document.title = 'Sports Dashboard'
   }
-  
+
   next()
 })
 

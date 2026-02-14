@@ -236,7 +236,7 @@ class FootballChartDataResponse(BaseModel):
 
 class FootballTeamXGAnalysisResponse(BaseModel):
     """Team-specific xG analysis response."""
-    
+
     team: FootballTeamResponse
     season: int
     matches: int
@@ -249,3 +249,377 @@ class FootballTeamXGAnalysisResponse(BaseModel):
     overperformance: float
     xg_per_game: float
     xa_per_game: float
+
+
+class FootballHomeAdvantageTeam(BaseModel):
+    """Home advantage data for a single team."""
+
+    team: str
+    home_played: int = 0
+    home_won: int = 0
+    home_drawn: int = 0
+    home_lost: int = 0
+    home_gf: int = 0
+    home_ga: int = 0
+    home_ppg: float = 0.0
+    away_played: int = 0
+    away_won: int = 0
+    away_drawn: int = 0
+    away_lost: int = 0
+    away_gf: int = 0
+    away_ga: int = 0
+    away_ppg: float = 0.0
+    advantage_index: float = 0.0
+
+
+class FootballHomeAdvantageResponse(BaseModel):
+    """Home advantage index response."""
+
+    teams: List[FootballHomeAdvantageTeam]
+    season: int
+
+
+class FootballPlayerStatsResponse(BaseModel):
+    """Player stats response."""
+
+    id: int
+    understat_player_id: Optional[str] = None
+    name: str
+    team_name: str
+    season: int
+    games: int = 0
+    minutes: int = 0
+    goals: int = 0
+    assists: int = 0
+    shots: int = 0
+    key_passes: int = 0
+    xg: float = 0.0
+    xa: float = 0.0
+    npg: int = 0
+    npxg: float = 0.0
+    xg_per_90: float = 0.0
+    goals_minus_xg: float = 0.0
+    created_at: Any = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
+
+
+class FootballTeamXGTimelinePoint(BaseModel):
+    """Single matchday point in xG timeline."""
+
+    matchday: int
+    date: Optional[str] = None
+    opponent: str
+    is_home: bool
+    goals_for: int = 0
+    goals_against: int = 0
+    xg_for: float = 0.0
+    xg_against: float = 0.0
+    cumulative_goals: int = 0
+    cumulative_xg: float = 0.0
+    cumulative_goals_against: int = 0
+    cumulative_xg_against: float = 0.0
+
+
+class FootballTeamXGTimelineResponse(BaseModel):
+    """Team xG timeline response."""
+
+    team: FootballTeamResponse
+    season: int
+    timeline: List[FootballTeamXGTimelinePoint]
+
+
+class FootballTeamVsLeagueMetric(BaseModel):
+    """Single metric comparing team vs league."""
+
+    metric: str
+    team_value: float
+    league_value: float
+    difference: float
+
+
+class FootballTeamVsLeagueResponse(BaseModel):
+    """Team vs league comparison response."""
+
+    team: FootballTeamResponse
+    season: int
+    metrics: List[FootballTeamVsLeagueMetric]
+
+
+class FootballTeamProjection(BaseModel):
+    """Projected season outcome for a team."""
+
+    team: str
+    current_points: int = 0
+    current_position: int = 0
+    projected_points_mean: float = 0.0
+    projected_points_5th: float = 0.0
+    projected_points_95th: float = 0.0
+    title_probability: float = 0.0
+    top4_probability: float = 0.0
+    relegation_probability: float = 0.0
+    projected_position_mean: float = 0.0
+
+
+class FootballSeasonProjectionResponse(BaseModel):
+    """Season projection response."""
+
+    teams: List[FootballTeamProjection]
+    simulations: int
+    season: int
+
+
+class FootballAdvancedTeamStatsResponse(BaseModel):
+    """Advanced team stats response."""
+
+    id: int
+    team_name: str
+    season: int
+    possession_pct: Optional[float] = None
+    progressive_passes: Optional[int] = None
+    progressive_carries: Optional[int] = None
+    pressures: Optional[int] = None
+    pressure_success_pct: Optional[float] = None
+    tackles: Optional[int] = None
+    interceptions: Optional[int] = None
+    blocks: Optional[int] = None
+    sca: Optional[int] = None
+    gca: Optional[int] = None
+    passes_completed: Optional[int] = None
+    pass_completion_pct: Optional[float] = None
+    key_passes: Optional[int] = None
+    crosses: Optional[int] = None
+    through_balls: Optional[int] = None
+    created_at: Any = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
+
+
+class FootballAdvancedPlayerStatsResponse(BaseModel):
+    """Advanced player stats response."""
+
+    id: int
+    player_name: str
+    team_name: str
+    season: int
+    position: Optional[str] = None
+    age: Optional[int] = None
+    minutes_90s: Optional[float] = None
+    possession_pct: Optional[float] = None
+    progressive_passes: Optional[int] = None
+    progressive_carries: Optional[int] = None
+    progressive_passes_received: Optional[int] = None
+    pressures: Optional[int] = None
+    pressure_success_pct: Optional[float] = None
+    tackles: Optional[int] = None
+    interceptions: Optional[int] = None
+    blocks: Optional[int] = None
+    sca: Optional[int] = None
+    gca: Optional[int] = None
+    passes_completed: Optional[int] = None
+    pass_completion_pct: Optional[float] = None
+    key_passes: Optional[int] = None
+    crosses: Optional[int] = None
+    through_balls: Optional[int] = None
+    carries: Optional[int] = None
+    take_ons: Optional[int] = None
+    take_on_pct: Optional[float] = None
+    created_at: Any = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_dates(cls, v):
+        return _dt_to_str(v)
+
+
+# ---- Phase 1: Team Ratings ----
+
+class FootballTeamRatingResponse(BaseModel):
+    """Team rating response."""
+    team_id: int
+    team_name: str
+    tla: str
+    rating: float
+    seasons_analyzed: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class FootballTeamRatingsListResponse(BaseModel):
+    """List of team ratings."""
+    ratings: List[FootballTeamRatingResponse]
+    season: int
+
+
+# ---- Phase 2: Opponent-Adjusted Form ----
+
+class FootballFormMatchBreakdown(BaseModel):
+    """Single match breakdown in opponent-adjusted form."""
+    opponent: str
+    result: str  # W, D, L
+    opponent_rating: float
+    contribution: float
+    is_home: bool
+
+
+class FootballOpponentAdjustedFormResponse(BaseModel):
+    """Opponent-adjusted form response."""
+    team: FootballTeamResponse
+    form_rating_5: float
+    form_rating_10: float
+    form_string: str
+    breakdown: List[FootballFormMatchBreakdown]
+
+
+# ---- Phase 3a: Fixture Difficulty ----
+
+class FootballFixtureDifficultyCell(BaseModel):
+    """Single cell in fixture difficulty heatmap."""
+    matchday: int
+    opponent_short: str
+    is_home: bool
+    difficulty: float
+    status: str  # FINISHED, SCHEDULED
+    result: Optional[str] = None  # W, D, L or None
+
+
+class FootballTeamFixtureDifficulty(BaseModel):
+    """One team's fixture difficulty row."""
+    team_name: str
+    tla: str
+    team_id: int
+    fixtures: List[FootballFixtureDifficultyCell]
+
+
+class FootballFixtureDifficultyResponse(BaseModel):
+    """Fixture difficulty response."""
+    teams: List[FootballTeamFixtureDifficulty]
+    season: int
+    rating_mode: str
+
+
+# ---- Phase 3b: Position Progression ----
+
+class FootballTeamPositionProgression(BaseModel):
+    """Position progression for one team."""
+    team_name: str
+    team_id: int
+    positions: List[Optional[int]]
+
+
+class FootballPositionProgressionResponse(BaseModel):
+    """Position progression response."""
+    matchdays: List[int]
+    teams: List[FootballTeamPositionProgression]
+    season: int
+
+
+# ---- Phase 4a: Scoreline Frequency ----
+
+class FootballScorelineFrequency(BaseModel):
+    """Frequency of a scoreline."""
+    scoreline: str
+    count: int
+    wins: int = 0
+    draws: int = 0
+    losses: int = 0
+
+
+class FootballScorelineAnalysisResponse(BaseModel):
+    """Scoreline analysis response."""
+    team_name: str
+    team_id: int
+    scorelines: List[FootballScorelineFrequency]
+    seasons_analyzed: int
+
+
+# ---- Phase 4b: Multi-Season Home Advantage ----
+
+class FootballMultiSeasonHomeAdvantage(BaseModel):
+    """Multi-season home advantage for a single team."""
+    team: str
+    home_advantage: float
+    avg_home_ppg: float
+    avg_away_ppg: float
+    seasons_analyzed: int
+
+
+class FootballMultiSeasonHomeAdvantageResponse(BaseModel):
+    """Multi-season home advantage response."""
+    teams: List[FootballMultiSeasonHomeAdvantage]
+    current_season: int
+    seasons_back: int
+
+
+# ---- Phase 5: Prediction Tracking ----
+
+class FootballStorePredictionRequest(BaseModel):
+    """Request to store a prediction."""
+    fixture_id: int
+    predicted_home_score: float
+    predicted_away_score: float
+    home_win_prob: float
+    draw_prob: float
+    away_win_prob: float
+    model_name: str = "poisson"
+
+
+class FootballPredictionRecordResponse(BaseModel):
+    """Single prediction record."""
+    id: int
+    fixture_id: int
+    season: int
+    predicted_home_score: float
+    predicted_away_score: float
+    home_win_prob: float
+    draw_prob: float
+    away_win_prob: float
+    model_name: str
+    actual_home_score: Optional[int] = None
+    actual_away_score: Optional[int] = None
+    outcome_correct: Optional[bool] = None
+    score_correct: Optional[bool] = None
+    score_error: Optional[float] = None
+    created_at: Any = ""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_validator('created_at', mode='before')
+    @classmethod
+    def serialize_pred_dates(cls, v):
+        return _dt_to_str(v)
+
+
+class FootballPredictionAccuracyResponse(BaseModel):
+    """Prediction accuracy summary."""
+    total: int
+    evaluated: int
+    outcome_accuracy: float
+    score_accuracy: float
+    avg_error: float
+    by_month: List[Dict[str, Any]] = []
+
+
+class FootballUpcomingFixture(BaseModel):
+    """Upcoming fixture with optional prediction."""
+    fixture: FootballFixtureResponse
+    prediction: Optional[Dict[str, Any]] = None
+
+
+class FootballUpcomingResponse(BaseModel):
+    """Upcoming matches response."""
+    next_matchday: Optional[int] = None
+    fixtures: List[FootballUpcomingFixture]
+    season: int

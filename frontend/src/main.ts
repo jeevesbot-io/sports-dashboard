@@ -28,17 +28,22 @@ import 'primevue/resources/themes/aura-dark-noir/theme.css'
 import 'primevue/resources/primevue.min.css'
 import 'primeicons/primeicons.css'
 
+// Design system (must be after PrimeVue to override)
+import '@/assets/css/index.css'
+
 // ECharts
 import ECharts from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, BarChart, PieChart } from 'echarts/charts'
+import { LineChart, BarChart, PieChart, RadarChart, HeatmapChart, ScatterChart } from 'echarts/charts'
 import {
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
-  DataZoomComponent
+  DataZoomComponent,
+  RadarComponent,
+  VisualMapComponent
 } from 'echarts/components'
 
 // App components
@@ -51,11 +56,16 @@ use([
   LineChart,
   BarChart,
   PieChart,
+  RadarChart,
+  HeatmapChart,
+  ScatterChart,
   TitleComponent,
   TooltipComponent,
   LegendComponent,
   GridComponent,
-  DataZoomComponent
+  DataZoomComponent,
+  RadarComponent,
+  VisualMapComponent
 ])
 
 // Create Vue app

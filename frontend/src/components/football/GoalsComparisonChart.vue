@@ -1,8 +1,7 @@
 <template>
   <div class="goals-comparison-chart">
-    <h3>Goals Comparison</h3>
-    <VChart 
-      :option="chartOption" 
+    <VChart
+      :option="chartOption"
       :style="{ height: '400px', width: '100%' }"
       autoresize
     />
@@ -12,6 +11,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { EChartsOption } from 'echarts'
+import { useChartTheme } from '@/composables/useChartTheme'
+import { tooltipConfig, CHART_ANIMATION } from '@/utils/chartTheme'
+
+const { isDark, chartColors } = useChartTheme()
 
 interface Props {
   standings: Array<{
@@ -28,6 +31,7 @@ interface Props {
 const props = defineProps<Props>()
 
 const chartOption = computed<EChartsOption>(() => {
+  const colors = chartColors.value
   const data = props.standings
     .slice()
     .sort((a, b) => b.goal_difference - a.goal_difference)
@@ -39,31 +43,19 @@ const chartOption = computed<EChartsOption>(() => {
     }))
 
   return {
-    title: {
-      text: 'Goals For vs Goals Against',
-      left: 'center',
-      textStyle: {
-        color: '#f0f0f0',
-        fontSize: 16
-      }
-    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
         type: 'shadow'
       },
-      backgroundColor: '#1a1a1a',
-      borderColor: '#333',
-      textStyle: {
-        color: '#f0f0f0'
-      },
+      ...tooltipConfig(isDark.value),
       formatter: (params: any) => {
         const team = params[0].name
         const goalsFor = Math.abs(params[1]?.value || 0)
         const goalsAgainst = Math.abs(params[0]?.value || 0)
         const difference = goalsFor - goalsAgainst
         return `
-          <div style="padding: 8px;">
+          <div style="padding: 4px;">
             <strong>${team}</strong><br/>
             Goals For: ${goalsFor}<br/>
             Goals Against: ${goalsAgainst}<br/>
@@ -74,32 +66,32 @@ const chartOption = computed<EChartsOption>(() => {
     },
     legend: {
       data: ['Goals Against', 'Goals For'],
-      top: 30,
+      top: 5,
       textStyle: {
-        color: '#888'
+        color: colors.text
       }
     },
     grid: {
       left: '3%',
       right: '4%',
       bottom: '3%',
-      top: '80px',
+      top: '45px',
       containLabel: true
     },
     xAxis: {
       type: 'value',
       axisLabel: {
-        color: '#888',
+        color: colors.axisLabel,
         formatter: (value: number) => Math.abs(value).toString()
       },
       axisLine: {
         lineStyle: {
-          color: '#333'
+          color: colors.axis
         }
       },
       splitLine: {
         lineStyle: {
-          color: '#222'
+          color: colors.gridLine
         }
       }
     },
@@ -107,16 +99,16 @@ const chartOption = computed<EChartsOption>(() => {
       type: 'category',
       data: data.map(d => d.name),
       axisLabel: {
-        color: '#888',
+        color: colors.axisLabel,
         formatter: (value: string) => {
-          return data.find(d => d.name === value)?.isNewcastle 
-            ? `⭐ ${value}` 
+          return data.find(d => d.name === value)?.isNewcastle
+            ? `⭐ ${value}`
             : value
         }
       },
       axisLine: {
         lineStyle: {
-          color: '#333'
+          color: colors.axis
         }
       },
       axisTick: {
@@ -131,7 +123,7 @@ const chartOption = computed<EChartsOption>(() => {
         data: data.map(d => ({
           value: d.goalsAgainst,
           itemStyle: {
-            color: d.isNewcastle ? '#ff6b6b' : '#e74c3c'
+            color: d.isNewcastle ? colors.accentViolet : colors.loss
           }
         })),
         emphasis: {
@@ -145,23 +137,15 @@ const chartOption = computed<EChartsOption>(() => {
         data: data.map(d => ({
           value: d.goalsFor,
           itemStyle: {
-            color: d.isNewcastle ? '#4ecdc4' : '#27ae60'
+            color: d.isNewcastle ? colors.accent : colors.win
           }
         })),
         emphasis: {
           focus: 'series'
         }
       }
-    ]
+    ],
+    ...CHART_ANIMATION
   }
 })
 </script>
-
-<style scoped>
-.goals-comparison-chart h3 {
-  margin: 0 0 1rem 0;
-  color: #f0f0f0;
-  font-size: 1.1rem;
-  text-align: center;
-}
-</style>

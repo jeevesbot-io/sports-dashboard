@@ -3,34 +3,33 @@ xG Scatter Chart Component - Actual vs Expected Goals
 -->
 <template>
   <div class="xg-chart">
-    <!-- Loading State -->
-    <div v-if="loading" class="flex justify-center items-center h-96">
-      <ProgressSpinner />
-    </div>
-
     <!-- Chart -->
-    <div v-else-if="chartData.length > 0" class="chart-container">
-      <div ref="chartRef" class="w-full h-96"></div>
-      
+    <div v-if="chartData.length > 0">
+      <VChart
+        :option="chartOption"
+        :style="{ height: '384px', width: '100%' }"
+        autoresize
+      />
+
       <!-- Chart Info -->
-      <div class="mt-3 p-2 bg-gray-50 rounded text-xs">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+      <div class="mt-3 p-2 rounded text-xs bg-[var(--sd-surface-100)] border border-[var(--sd-glass-border)]">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[var(--sd-text-muted)]">
           <div>
-            <i class="pi pi-info-circle text-blue-500 mr-1"></i>
-            <strong>Diagonal line:</strong> Perfect xG performance
+            <i class="pi pi-info-circle text-[var(--sd-accent)] mr-1"></i>
+            <strong class="text-[var(--sd-text-primary)]">Diagonal line:</strong> Perfect xG performance
           </div>
           <div>
-            <i class="pi pi-arrow-up text-green-500 mr-1"></i>
-            <strong>Above line:</strong> Overperforming xG (scoring more than expected)
+            <i class="pi pi-arrow-up mr-1" style="color: #10b981"></i>
+            <strong class="text-[var(--sd-text-primary)]">Above line:</strong> Overperforming xG (scoring more than expected)
           </div>
         </div>
       </div>
     </div>
 
     <!-- Empty State -->
-    <div 
-      v-else 
-      class="flex flex-col items-center justify-center h-96 text-gray-500"
+    <div
+      v-else
+      class="flex flex-col items-center justify-center h-96 text-[var(--sd-text-muted)]"
     >
       <i class="pi pi-chart-scatter text-4xl mb-3"></i>
       <p>No xG data available for chart</p>
@@ -39,11 +38,12 @@ xG Scatter Chart Component - Actual vs Expected Goals
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
-import * as echarts from 'echarts'
+import { computed } from 'vue'
+import type { EChartsOption } from 'echarts'
+import { useChartTheme } from '@/composables/useChartTheme'
+import { tooltipConfig, CHART_ANIMATION } from '@/utils/chartTheme'
 
-// PrimeVue Components
-import ProgressSpinner from 'primevue/progressspinner'
+const { isDark, chartColors } = useChartTheme()
 
 // Types
 interface XGChartData {
@@ -68,10 +68,6 @@ const props = withDefaults(defineProps<Props>(), {
   loading: false
 })
 
-// Reactive state
-const chartRef = ref<HTMLElement>()
-let chartInstance: echarts.ECharts | null = null
-
 // Computed properties
 const chartData = computed(() => props.data || [])
 
@@ -87,7 +83,7 @@ const scatterData = computed(() => {
 
 const maxValue = computed(() => {
   if (!chartData.value.length) return 50
-  
+
   const maxXG = Math.max(...chartData.value.map(t => t.xg_for))
   const maxGoals = Math.max(...chartData.value.map(t => t.goals_for))
   return Math.ceil(Math.max(maxXG, maxGoals) * 1.1)
@@ -95,37 +91,30 @@ const maxValue = computed(() => {
 
 // Methods
 const getTeamColor = (overperformance: number): string => {
-  if (overperformance > 3) return '#16a34a' // Green - significant overperformance
-  if (overperformance > 1) return '#2563eb' // Blue - slight overperformance
-  if (overperformance > -1) return '#64748b' // Gray - neutral
-  if (overperformance > -3) return '#f97316' // Orange - slight underperformance
-  return '#dc2626' // Red - significant underperformance
+  const colors = chartColors.value
+  if (overperformance > 3) return colors.win        // Green - significant overperformance
+  if (overperformance > 1) return colors.series[6]  // Blue - slight overperformance (#3b82f6)
+  if (overperformance > -1) return colors.axisLabel  // Muted - neutral
+  if (overperformance > -3) return colors.series[7]  // Orange - slight underperformance (#f97316)
+  return colors.loss                                  // Red - significant underperformance
 }
 
-const createChart = () => {
-  if (!chartRef.value) return
+// Chart option
+const chartOption = computed<EChartsOption>(() => {
+  const colors = chartColors.value
 
-  chartInstance = echarts.init(chartRef.value)
-
-  const option = {
-    title: {
-      text: 'Goals vs Expected Goals',
-      left: 'center',
-      textStyle: {
-        fontSize: 16,
-        fontWeight: 'normal'
-      }
-    },
+  return {
     tooltip: {
       trigger: 'item',
+      ...tooltipConfig(isDark.value),
       formatter: (params: any) => {
         const team = chartData.value.find(t => t.team === params.data.name)
         if (!team) return ''
-        
+
         return `
-          <div class="p-2">
-            <div class="font-bold mb-1">${team.team}</div>
-            <div class="text-sm space-y-1">
+          <div style="padding: 2px;">
+            <div style="font-weight: bold; margin-bottom: 4px;">${team.team}</div>
+            <div style="font-size: 12px;">
               <div>xG: ${team.xg_for.toFixed(1)} | Goals: ${team.goals_for}</div>
               <div>Over/Under: ${team.overperformance > 0 ? '+' : ''}${team.overperformance.toFixed(1)}</div>
               <div>Matches: ${team.matches}</div>
@@ -138,23 +127,27 @@ const createChart = () => {
       left: '10%',
       right: '5%',
       bottom: '15%',
-      top: '15%'
+      top: '10%'
     },
     xAxis: {
       type: 'value',
       name: 'Expected Goals (xG)',
       nameLocation: 'center',
       nameGap: 30,
+      nameTextStyle: { color: colors.axisLabel },
       min: 0,
       max: maxValue.value,
       axisLine: {
         lineStyle: {
-          color: '#d1d5db'
+          color: colors.axis
         }
+      },
+      axisLabel: {
+        color: colors.axisLabel
       },
       splitLine: {
         lineStyle: {
-          color: '#f3f4f6',
+          color: colors.gridLine,
           type: 'dashed'
         }
       }
@@ -164,16 +157,20 @@ const createChart = () => {
       name: 'Actual Goals',
       nameLocation: 'center',
       nameGap: 40,
+      nameTextStyle: { color: colors.axisLabel },
       min: 0,
       max: maxValue.value,
       axisLine: {
         lineStyle: {
-          color: '#d1d5db'
+          color: colors.axis
         }
+      },
+      axisLabel: {
+        color: colors.axisLabel
       },
       splitLine: {
         lineStyle: {
-          color: '#f3f4f6',
+          color: colors.gridLine,
           type: 'dashed'
         }
       }
@@ -185,7 +182,7 @@ const createChart = () => {
         name: 'Perfect xG Performance',
         data: [[0, 0], [maxValue.value, maxValue.value]],
         lineStyle: {
-          color: '#9ca3af',
+          color: colors.textMuted,
           width: 2,
           type: 'dashed'
         },
@@ -202,7 +199,7 @@ const createChart = () => {
         emphasis: {
           symbolSize: 12,
           itemStyle: {
-            borderColor: '#374151',
+            borderColor: colors.text,
             borderWidth: 2
           }
         },
@@ -212,57 +209,7 @@ const createChart = () => {
     legend: {
       show: false
     },
-    animation: true,
-    animationDuration: 1000
+    ...CHART_ANIMATION
   }
-
-  chartInstance.setOption(option)
-}
-
-const resizeChart = () => {
-  if (chartInstance) {
-    chartInstance.resize()
-  }
-}
-
-// Watchers
-watch(
-  () => [chartData.value, maxValue.value],
-  () => {
-    if (chartInstance && chartData.value.length > 0) {
-      createChart()
-    }
-  },
-  { deep: true }
-)
-
-// Lifecycle
-onMounted(() => {
-  if (chartData.value.length > 0) {
-    createChart()
-  }
-  
-  window.addEventListener('resize', resizeChart)
-})
-
-onUnmounted(() => {
-  if (chartInstance) {
-    chartInstance.dispose()
-  }
-  window.removeEventListener('resize', resizeChart)
 })
 </script>
-
-<style scoped>
-.xg-chart {
-  @apply w-full;
-}
-
-.chart-container {
-  @apply w-full;
-}
-
-:deep(.echarts-tooltip) {
-  @apply shadow-lg border-gray-200;
-}
-</style>

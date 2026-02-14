@@ -1,139 +1,188 @@
 <template>
-  <div class="football-dashboard">
-    <!-- Header -->
-    <div class="dashboard-header">
-      <h1>⚽ Premier League</h1>
-      <p class="season">2025/26 Season</p>
+  <div class="max-w-[1200px] mx-auto">
+    <!-- Page Header -->
+    <div class="flex items-center gap-4 mb-8">
+      <h1 class="font-display text-3xl font-bold text-[var(--sd-text-primary)]">Premier League</h1>
+      <GradientBadge label="2025/26" variant="new" size="md" />
+      <GradientBadge v-if="currentMatchday" :label="`MD ${currentMatchday}`" variant="default" size="md" />
     </div>
 
-    <!-- Stats Cards -->
-    <div class="stats-row">
-      <div class="stat-card">
-        <div class="stat-value">{{ standings.length }}</div>
-        <div class="stat-label">Teams</div>
-      </div>
-      <div class="stat-card highlight">
-        <div class="stat-value">{{ focusTeamPosition || '—' }}</div>
-        <div class="stat-label">Newcastle Position</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{{ currentMatchday || '—' }}</div>
-        <div class="stat-label">Current Matchday</div>
-      </div>
-      <div class="stat-card highlight">
-        <div class="stat-value">{{ focusTeamPoints || '—' }}</div>
-        <div class="stat-label">Newcastle Points</div>
-      </div>
+    <!-- Loading State -->
+    <div v-if="store.loading" class="space-y-6">
+      <SkeletonLoader variant="stat-row" :cols="4" />
+      <SkeletonLoader variant="table" :rows="10" />
     </div>
 
-    <!-- League Table -->
-    <div class="table-section" v-if="standings.length">
-      <h2>League Table</h2>
-      <DataTable 
-        :value="standings" 
-        :rows="20"
-        :rowClass="rowClass"
-        sortMode="single"
-        removableSort
-        class="league-table"
-        responsiveLayout="scroll"
-      >
-        <Column field="position" header="#" sortable :style="{ width: '50px' }"></Column>
-        <Column header="Team" sortable sortField="team.short_name" :style="{ width: '200px' }">
-          <template #body="{ data }">
-            <router-link 
-              :to="`/football/teams/${data.team.id}`" 
-              class="team-link"
-            >
-              <div class="team-cell">
-                <img 
-                  :src="data.team.crest_url" 
-                  :alt="data.team.short_name"
-                  class="team-crest"
-                  @error="handleImageError"
-                />
-                <span>{{ data.team.short_name }}</span>
-              </div>
-            </router-link>
-          </template>
-        </Column>
-        <Column field="played" header="P" sortable :style="{ width: '60px' }"></Column>
-        <Column field="won" header="W" sortable :style="{ width: '60px' }"></Column>
-        <Column field="drawn" header="D" sortable :style="{ width: '60px' }"></Column>
-        <Column field="lost" header="L" sortable :style="{ width: '60px' }"></Column>
-        <Column field="goals_for" header="GF" sortable :style="{ width: '70px' }"></Column>
-        <Column field="goals_against" header="GA" sortable :style="{ width: '70px' }"></Column>
-        <Column field="goal_difference" header="GD" sortable :style="{ width: '70px' }">
-          <template #body="{ data }">
-            <span :class="{ 'positive': data.goal_difference > 0, 'negative': data.goal_difference < 0 }">
-              {{ data.goal_difference > 0 ? '+' : '' }}{{ data.goal_difference }}
-            </span>
-          </template>
-        </Column>
-        <Column field="points" header="Pts" sortable :style="{ width: '70px' }" class="points-column"></Column>
-        <Column header="Form" :style="{ width: '120px' }">
-          <template #body="{ data }">
-            <div class="form-dots">
-              <span 
-                v-for="(result, index) in parseForm(data.form)" 
-                :key="index"
-                :class="['form-dot', getFormClass(result)]"
-                :title="getFormTitle(result)"
-              >
-                {{ result }}
-              </span>
-            </div>
-          </template>
-        </Column>
-      </DataTable>
-    </div>
-
-    <!-- Charts Section -->
-    <div v-if="standings.length" class="charts-section">
-      <div class="charts-grid">
-        <div class="chart-item">
-          <Card>
-            <template #content>
-              <PointsProgressionChart :standings="standings" />
-            </template>
-          </Card>
+    <template v-else-if="standings.length">
+      <!-- Stat Cards -->
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div style="animation-delay: 0ms">
+          <StatCard
+            :value="standings.length"
+            label="Teams"
+            icon="pi pi-users"
+            gradient="var(--sd-gradient-1)"
+          />
         </div>
-        <div class="chart-item">
-          <Card>
-            <template #content>
-              <GoalsComparisonChart :standings="standings" />
-            </template>
-          </Card>
+        <div style="animation-delay: 50ms">
+          <StatCard
+            :value="focusTeamPosition || '—'"
+            label="Newcastle Position"
+            icon="pi pi-hashtag"
+            gradient="var(--sd-gradient-2)"
+          />
+        </div>
+        <div style="animation-delay: 100ms">
+          <StatCard
+            :value="currentMatchday || '—'"
+            label="Current Matchday"
+            icon="pi pi-calendar"
+            gradient="var(--sd-gradient-3)"
+          />
+        </div>
+        <div style="animation-delay: 150ms">
+          <StatCard
+            :value="focusTeamPoints || '—'"
+            label="Newcastle Points"
+            icon="pi pi-star"
+            gradient="var(--sd-gradient-4)"
+          />
         </div>
       </div>
-      
-      <div class="chart-full-width">
-        <Card>
-          <template #content>
-            <FormHeatmapChart :standings="standings" />
-          </template>
-        </Card>
-      </div>
-    </div>
 
-    <!-- Fixtures Section -->
-    <div v-if="fixtures.length" class="fixtures-section">
-      <Card>
-        <template #content>
-          <FixtureList :fixtures="fixtures" />
+      <!-- League Table -->
+      <GlassCard class="mb-8">
+        <template #header>
+          <h2 class="font-display text-lg font-semibold text-[var(--sd-text-primary)]">League Table</h2>
         </template>
-      </Card>
-    </div>
+        <DataTable
+          :value="standings"
+          :rows="20"
+          :rowClass="rowClass"
+          sortMode="single"
+          removableSort
+          class="league-table"
+          responsiveLayout="scroll"
+        >
+          <Column field="position" header="#" sortable :style="{ width: '50px' }">
+            <template #body="{ data }">
+              <span
+                class="inline-flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold"
+                :class="{
+                  'bg-cyan-500/20 text-cyan-300': data.position <= 4,
+                  'bg-red-500/20 text-red-400': data.position >= 18,
+                  'text-[var(--sd-text-secondary)]': data.position > 4 && data.position < 18
+                }"
+              >
+                {{ data.position }}
+              </span>
+            </template>
+          </Column>
+          <Column header="Team" sortable sortField="team.short_name" :style="{ width: '200px' }">
+            <template #body="{ data }">
+              <router-link
+                :to="`/football/teams/${data.team.id}`"
+                class="text-[var(--sd-text-primary)] no-underline hover:text-white transition-colors"
+              >
+                <div class="flex items-center gap-2">
+                  <img
+                    :src="data.team.crest_url"
+                    :alt="data.team.short_name"
+                    class="w-5 h-5 shrink-0 object-contain"
+                    @error="handleImageError"
+                  />
+                  <span>{{ data.team.short_name }}</span>
+                </div>
+              </router-link>
+            </template>
+          </Column>
+          <Column field="played" header="P" sortable :style="{ width: '60px' }"></Column>
+          <Column field="won" header="W" sortable :style="{ width: '60px' }"></Column>
+          <Column field="drawn" header="D" sortable :style="{ width: '60px' }"></Column>
+          <Column field="lost" header="L" sortable :style="{ width: '60px' }"></Column>
+          <Column field="goals_for" header="GF" sortable :style="{ width: '70px' }"></Column>
+          <Column field="goals_against" header="GA" sortable :style="{ width: '70px' }"></Column>
+          <Column field="goal_difference" header="GD" sortable :style="{ width: '70px' }">
+            <template #body="{ data }">
+              <span :class="{
+                'text-emerald-400': data.goal_difference > 0,
+                'text-red-400': data.goal_difference < 0,
+                'text-[var(--sd-text-muted)]': data.goal_difference === 0
+              }">
+                {{ data.goal_difference > 0 ? '+' : '' }}{{ data.goal_difference }}
+              </span>
+            </template>
+          </Column>
+          <Column field="points" header="Pts" sortable :style="{ width: '70px' }">
+            <template #body="{ data }">
+              <span class="font-bold text-[var(--sd-text-primary)]">{{ data.points }}</span>
+            </template>
+          </Column>
+          <Column header="Form" :style="{ width: '180px' }">
+            <template #body="{ data }">
+              <div class="flex gap-1 justify-center">
+                <span
+                  v-for="(result, index) in parseForm(data.form)"
+                  :key="index"
+                  :class="['form-dot', `form-dot-${getFormClass(result)}`]"
+                  :title="getFormTitle(result)"
+                >
+                  {{ result }}
+                </span>
+              </div>
+            </template>
+          </Column>
+        </DataTable>
+      </GlassCard>
 
-    <!-- Empty state -->
-    <div v-else-if="!store.loading" class="empty-state">
-      <p>No standings data yet. Run data ingestion to populate.</p>
-    </div>
+      <!-- Upcoming Matches -->
+      <div class="mb-8">
+        <GlassCard>
+          <UpcomingMatchesPanel />
+        </GlassCard>
+      </div>
 
-    <!-- Loading state -->
-    <div v-if="store.loading" class="loading-state">
-      <ProgressSpinner />
-      <p>Loading football data...</p>
+      <!-- Newcastle Focus Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <ChartCard title="Newcastle vs League Average">
+          <TeamVsLeague />
+        </ChartCard>
+        <ChartCard title="Season Tracker">
+          <SeasonTracker />
+        </ChartCard>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <ChartCard title="Points Progression">
+          <PointsProgressionChart />
+        </ChartCard>
+        <ChartCard title="Goals Comparison">
+          <GoalsComparisonChart :standings="standings" />
+        </ChartCard>
+      </div>
+
+      <div class="mb-8">
+        <ChartCard title="Form Heatmap">
+          <FormHeatmapChart :standings="standings" />
+        </ChartCard>
+      </div>
+
+      <!-- Fixtures Section -->
+      <div v-if="fixtures.length" class="mb-8">
+        <GlassCard>
+          <template #header>
+            <h2 class="font-display text-lg font-semibold text-[var(--sd-text-primary)]">Fixtures</h2>
+          </template>
+          <FixtureList :fixtures="fixtures" />
+        </GlassCard>
+      </div>
+    </template>
+
+    <!-- Empty State -->
+    <div v-else class="text-center py-16">
+      <i class="pi pi-inbox text-4xl text-[var(--sd-text-muted)] mb-4"></i>
+      <p class="text-[var(--sd-text-muted)]">No standings data yet. Run data ingestion to populate.</p>
     </div>
   </div>
 </template>
@@ -145,6 +194,14 @@ import PointsProgressionChart from '@/components/football/PointsProgressionChart
 import GoalsComparisonChart from '@/components/football/GoalsComparisonChart.vue'
 import FormHeatmapChart from '@/components/football/FormHeatmapChart.vue'
 import FixtureList from '@/components/football/FixtureList.vue'
+import TeamVsLeague from '@/components/football/TeamVsLeague.vue'
+import SeasonTracker from '@/components/football/SeasonTracker.vue'
+import UpcomingMatchesPanel from '@/components/football/UpcomingMatchesPanel.vue'
+import StatCard from '@/components/ui/StatCard.vue'
+import GlassCard from '@/components/ui/GlassCard.vue'
+import ChartCard from '@/components/ui/ChartCard.vue'
+import GradientBadge from '@/components/ui/GradientBadge.vue'
+import SkeletonLoader from '@/components/ui/SkeletonLoader.vue'
 
 const store = useFootballStore()
 
@@ -208,224 +265,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-.football-dashboard {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 1.5rem;
-}
-
-.dashboard-header {
-  margin-bottom: 2rem;
-  text-align: center;
-}
-
-.dashboard-header h1 {
-  margin: 0;
-  color: #f0f0f0;
-}
-
-.season {
-  color: #888;
-  margin: 0.25rem 0 0 0;
-}
-
-.stats-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-}
-
-.stat-card {
-  background: #1e1e2e;
-  border: 1px solid #333;
-  border-radius: 8px;
-  padding: 1.25rem;
-  text-align: center;
-}
-
-.stat-card.highlight {
-  border-color: #fff;
-  background: #1a1a2a;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #f0f0f0;
-}
-
-.stat-label {
-  color: #888;
-  font-size: 0.85rem;
-  margin-top: 0.25rem;
-}
-
-.table-section {
-  margin-bottom: 3rem;
-}
-
-.table-section h2 {
-  color: #f0f0f0;
-  margin-bottom: 1rem;
-}
-
-.team-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.team-crest {
-  width: 20px;
-  height: 20px;
-  object-fit: contain;
-}
-
-.team-link {
-  color: inherit;
-  text-decoration: none;
-}
-
-.team-link:hover {
-  color: #fff;
-  text-decoration: underline;
-}
-
-.positive {
-  color: #27ae60;
-}
-
-.negative {
-  color: #e74c3c;
-}
-
-.form-dots {
-  display: flex;
-  gap: 2px;
-  justify-content: center;
-}
-
-.form-dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 10px;
-  font-weight: bold;
-  color: white;
-}
-
-.form-dot.win {
-  background: #27ae60;
-}
-
-.form-dot.draw {
-  background: #f39c12;
-}
-
-.form-dot.loss {
-  background: #e74c3c;
-}
-
-.charts-section {
-  margin-bottom: 3rem;
-}
-
-.charts-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-  margin-bottom: 1.5rem;
-}
-
-.chart-full-width {
-  width: 100%;
-}
-
-.fixtures-section {
-  margin-bottom: 2rem;
-}
-
-.empty-state, .loading-state {
-  text-align: center;
-  padding: 3rem;
-  color: #666;
-}
-
-.loading-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-}
-
-/* Custom DataTable styling for dark theme */
-:deep(.league-table) {
-  background: transparent;
-}
-
-:deep(.league-table .p-datatable-thead > tr > th) {
-  background: #1e1e2e;
-  color: #888;
-  border-color: #333;
-  font-weight: 600;
-}
-
-:deep(.league-table .p-datatable-tbody > tr) {
-  background: transparent;
-  color: #ccc;
-}
-
-:deep(.league-table .p-datatable-tbody > tr:nth-child(even)) {
-  background: rgba(255, 255, 255, 0.02);
-}
-
-:deep(.league-table .p-datatable-tbody > tr:hover) {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-:deep(.league-table .p-datatable-tbody > tr.focus-team-row) {
-  background: rgba(255, 255, 255, 0.08) !important;
-  font-weight: 600;
-  color: #f0f0f0;
-}
-
-:deep(.league-table .p-datatable-tbody > tr > td) {
-  border-color: #222;
-  text-align: center;
-}
-
-:deep(.league-table .p-datatable-tbody > tr > td:first-child) {
-  text-align: center;
-  font-weight: 700;
-}
-
-:deep(.league-table .points-column) {
-  font-weight: 700;
-  color: #f0f0f0;
-}
-
-:deep(.league-table .p-sortable-column:hover) {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-:deep(.league-table .p-sortable-column-icon) {
-  color: #666;
-}
-
-/* Responsive adjustments */
-@media (max-width: 768px) {
-  .charts-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .stats-row {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-</style>

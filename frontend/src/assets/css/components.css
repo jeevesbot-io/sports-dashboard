@@ -1,0 +1,175 @@
+/* Reusable Component Classes */
+
+/* Glass Card */
+.glass-card {
+  background: var(--sd-glass-bg);
+  backdrop-filter: blur(var(--sd-glass-blur));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur));
+  border: 1px solid var(--sd-glass-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px var(--sd-glass-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card-elevated {
+  background: var(--sd-glass-bg-elevated);
+  backdrop-filter: blur(var(--sd-glass-blur));
+  -webkit-backdrop-filter: blur(var(--sd-glass-blur));
+  border: 1px solid var(--sd-glass-border);
+  border-radius: 16px;
+  box-shadow: 0 16px 48px var(--sd-glass-shadow);
+}
+
+.glass-card-interactive {
+  cursor: pointer;
+}
+
+.glass-card-interactive:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 40px var(--sd-glass-shadow);
+}
+
+/* Stat Card with Gradient */
+.stat-card-glass {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  padding: 1.5rem;
+  color: #fff;
+}
+
+.stat-card-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.15;
+  background: radial-gradient(circle at top right, rgba(255,255,255,0.3), transparent 60%);
+}
+
+/* Gradient Text */
+.gradient-text {
+  background: var(--sd-accent-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Focus Team Row Highlight */
+.focus-team-row {
+  background: rgba(6, 182, 212, 0.06) !important;
+  border-left: 3px solid;
+  border-image: linear-gradient(to bottom, #06b6d4, #8b5cf6) 1;
+}
+
+.focus-team-row:hover {
+  background: rgba(6, 182, 212, 0.10) !important;
+}
+
+/* Form Dot */
+.form-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  transition: transform 0.15s ease;
+}
+
+.form-dot:hover {
+  transform: scale(1.15);
+}
+
+.form-dot-win {
+  background: rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.form-dot-draw {
+  background: rgba(245, 158, 11, 0.2);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.form-dot-loss {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Gradient Badge */
+.gradient-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Pill Navigation */
+.pill-nav {
+  display: flex;
+  gap: 0.25rem;
+  padding: 4px;
+  background: var(--sd-glass-bg);
+  border-radius: 12px;
+  border: 1px solid var(--sd-glass-border);
+  overflow-x: auto;
+}
+
+.pill-nav-item {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--sd-text-secondary);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  border: none;
+  background: transparent;
+}
+
+.pill-nav-item:hover {
+  color: var(--sd-text-primary);
+  background: var(--sd-surface-200);
+}
+
+.pill-nav-item-active {
+  background: var(--sd-accent-gradient);
+  color: #fff;
+}
+
+.pill-nav-item-active:hover {
+  background: var(--sd-accent-gradient-hover);
+  color: #fff;
+}
+
+/* Connection Status Dot */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.status-dot-connected {
+  background: #10b981;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+}
+
+.status-dot-disconnected {
+  background: #ef4444;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}

@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     
     # Server Configuration
     host: str = "0.0.0.0"
-    port: int = 5060
+    port: int = 5160
     debug: bool = False
     
     # Database Configuration

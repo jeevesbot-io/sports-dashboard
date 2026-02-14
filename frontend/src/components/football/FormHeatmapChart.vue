@@ -1,8 +1,7 @@
 <template>
   <div class="form-heatmap-chart">
-    <h3>Recent Form (Last 5 Matches)</h3>
-    <VChart 
-      :option="chartOption" 
+    <VChart
+      :option="chartOption"
       :style="{ height: '500px', width: '100%' }"
       autoresize
     />
@@ -12,6 +11,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { EChartsOption } from 'echarts'
+import { useChartTheme } from '@/composables/useChartTheme'
+import { tooltipConfig, RESULT_COLORS, CHART_ANIMATION } from '@/utils/chartTheme'
+
+const { isDark, chartColors } = useChartTheme()
 
 interface Props {
   standings: Array<{
@@ -26,59 +29,52 @@ interface Props {
 const props = defineProps<Props>()
 
 const chartOption = computed<EChartsOption>(() => {
+  const colors = chartColors.value
   const teams = props.standings
     .slice()
     .sort((a, b) => a.position - b.position)
 
   const heatmapData: Array<[number, number, number]> = []
   const formLabels = ['Match 1', 'Match 2', 'Match 3', 'Match 4', 'Match 5']
-  
+
   teams.forEach((team, teamIndex) => {
     const formResults = team.form ? team.form.split(',').reverse() : [] // reverse to show most recent first
-    
+
     formResults.forEach((result, matchIndex) => {
       let value = 0 // Loss
       if (result.trim() === 'W') value = 2 // Win
       else if (result.trim() === 'D') value = 1 // Draw
-      
+
       heatmapData.push([matchIndex, teamIndex, value])
     })
-    
+
     // Fill missing matches with null/0
     for (let i = formResults.length; i < 5; i++) {
       heatmapData.push([i, teamIndex, -1]) // -1 for no data
     }
   })
 
+  const splitAreaColors = isDark.value
+    ? ['rgba(40, 42, 58, 0.5)', 'rgba(40, 42, 58, 0.8)']
+    : ['rgba(229, 231, 239, 0.3)', 'rgba(229, 231, 239, 0.5)']
+
   return {
-    title: {
-      text: 'Team Form Heatmap',
-      left: 'center',
-      textStyle: {
-        color: '#f0f0f0',
-        fontSize: 16
-      }
-    },
     tooltip: {
       position: 'top',
-      backgroundColor: '#1a1a1a',
-      borderColor: '#333',
-      textStyle: {
-        color: '#f0f0f0'
-      },
+      ...tooltipConfig(isDark.value),
       formatter: (params: any) => {
         const teamIndex = params.data[1]
         const matchIndex = params.data[0]
         const result = params.data[2]
-        
+
         const teamName = teams[teamIndex]?.team.short_name || 'Unknown'
         const matchName = formLabels[matchIndex]
-        
+
         let resultText = 'No Data'
         if (result === 2) resultText = 'Win'
         else if (result === 1) resultText = 'Draw'
         else if (result === 0) resultText = 'Loss'
-        
+
         return `${teamName}<br/>${matchName}: ${resultText}`
       }
     },
@@ -86,7 +82,7 @@ const chartOption = computed<EChartsOption>(() => {
       height: '80%',
       left: '100px',
       right: '50px',
-      top: '60px'
+      top: '10px'
     },
     xAxis: {
       type: 'category',
@@ -94,11 +90,11 @@ const chartOption = computed<EChartsOption>(() => {
       splitArea: {
         show: true,
         areaStyle: {
-          color: ['rgba(30,30,46,0.5)', 'rgba(30,30,46,0.8)']
+          color: splitAreaColors
         }
       },
       axisLabel: {
-        color: '#888',
+        color: colors.axisLabel,
         fontSize: 11
       },
       axisLine: {
@@ -117,11 +113,11 @@ const chartOption = computed<EChartsOption>(() => {
       splitArea: {
         show: true,
         areaStyle: {
-          color: ['rgba(30,30,46,0.5)', 'rgba(30,30,46,0.8)']
+          color: splitAreaColors
         }
       },
       axisLabel: {
-        color: '#888',
+        color: colors.axisLabel,
         fontSize: 11,
         formatter: (value: string) => {
           return value.length > 12 ? value.substring(0, 12) + '...' : value
@@ -142,13 +138,13 @@ const chartOption = computed<EChartsOption>(() => {
       left: 'center',
       bottom: '0%',
       pieces: [
-        { value: -1, color: '#2c2c3a', label: 'No Data' },
-        { value: 0, color: '#e74c3c', label: 'Loss' },
-        { value: 1, color: '#f39c12', label: 'Draw' },
-        { value: 2, color: '#27ae60', label: 'Win' }
+        { value: -1, color: colors.axis, label: 'No Data' },
+        { value: 0, color: RESULT_COLORS.loss, label: 'Loss' },
+        { value: 1, color: RESULT_COLORS.draw, label: 'Draw' },
+        { value: 2, color: RESULT_COLORS.win, label: 'Win' }
       ],
       textStyle: {
-        color: '#888',
+        color: colors.axisLabel,
         fontSize: 11
       }
     },
@@ -172,20 +168,12 @@ const chartOption = computed<EChartsOption>(() => {
       },
       emphasis: {
         itemStyle: {
-          borderColor: '#fff',
+          borderColor: colors.tooltipText,
           borderWidth: 1
         }
       }
-    }]
+    }],
+    ...CHART_ANIMATION
   }
 })
 </script>
-
-<style scoped>
-.form-heatmap-chart h3 {
-  margin: 0 0 1rem 0;
-  color: #f0f0f0;
-  font-size: 1.1rem;
-  text-align: center;
-}
-</style>

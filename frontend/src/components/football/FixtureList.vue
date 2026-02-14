@@ -1,51 +1,67 @@
 <template>
   <div class="fixture-list">
-    <h3>Fixtures & Results</h3>
-    <TabView>
-      <TabPanel header="Recent Results">
-        <div v-if="recentFixtures.length === 0" class="no-data">
+    <h3 class="font-display text-lg font-semibold text-[var(--sd-text-primary)] mb-4 text-center">Fixtures & Results</h3>
+
+    <!-- Two-column layout instead of TabView -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <!-- Recent Results -->
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wider text-[var(--sd-text-muted)] mb-3">Recent Results</div>
+        <div v-if="recentFixtures.length === 0" class="text-center py-8 text-[var(--sd-text-muted)]">
           <p>No recent results available</p>
         </div>
-        <div v-else class="fixtures">
-          <div 
-            v-for="fixture in recentFixtures" 
+        <div v-else class="flex flex-col gap-2 max-h-[350px] overflow-y-auto">
+          <div
+            v-for="fixture in recentFixtures"
             :key="fixture.id"
-            :class="['fixture-item', { 'newcastle-fixture': isNewcastleFixture(fixture) }]"
+            :class="[
+              'glass-card px-4 py-3 flex items-center gap-3',
+              isNewcastleFixture(fixture) ? 'focus-team-row' : ''
+            ]"
+            style="border-radius: 10px"
           >
-            <div class="fixture-date">
+            <div class="text-xs text-[var(--sd-text-muted)] min-w-[70px]">
               {{ formatDate(fixture.utc_date) }}
             </div>
-            <div class="fixture-match">
-              <span class="home-team">{{ fixture.home_team.short_name }}</span>
-              <span class="score">{{ fixture.home_score }} - {{ fixture.away_score }}</span>
-              <span class="away-team">{{ fixture.away_team.short_name }}</span>
+            <div class="flex-1 flex items-center justify-center gap-2 text-sm">
+              <span class="text-right min-w-[80px] font-medium text-[var(--sd-text-primary)]">{{ fixture.home_team.short_name }}</span>
+              <span class="font-mono font-bold text-[var(--sd-text-primary)] px-2 py-0.5 rounded bg-[var(--sd-surface-200)] text-xs">
+                {{ fixture.home_score }} - {{ fixture.away_score }}
+              </span>
+              <span class="min-w-[80px] font-medium text-[var(--sd-text-primary)]">{{ fixture.away_team.short_name }}</span>
             </div>
           </div>
         </div>
-      </TabPanel>
-      
-      <TabPanel header="Upcoming">
-        <div v-if="upcomingFixtures.length === 0" class="no-data">
+      </div>
+
+      <!-- Upcoming -->
+      <div>
+        <div class="text-xs font-semibold uppercase tracking-wider text-[var(--sd-text-muted)] mb-3">Upcoming</div>
+        <div v-if="upcomingFixtures.length === 0" class="text-center py-8 text-[var(--sd-text-muted)]">
           <p>No upcoming fixtures available</p>
         </div>
-        <div v-else class="fixtures">
-          <div 
-            v-for="fixture in upcomingFixtures" 
+        <div v-else class="flex flex-col gap-2 max-h-[350px] overflow-y-auto">
+          <div
+            v-for="fixture in upcomingFixtures"
             :key="fixture.id"
-            :class="['fixture-item', { 'newcastle-fixture': isNewcastleFixture(fixture) }]"
+            :class="[
+              'glass-card px-4 py-3 flex items-center gap-3',
+              isNewcastleFixture(fixture) ? 'focus-team-row' : ''
+            ]"
+            style="border-radius: 10px"
           >
-            <div class="fixture-date">
+            <div class="text-xs text-[var(--sd-text-muted)] min-w-[70px]">
               {{ formatDate(fixture.utc_date) }}
             </div>
-            <div class="fixture-match">
-              <span class="home-team">{{ fixture.home_team.short_name }}</span>
-              <span class="vs">vs</span>
-              <span class="away-team">{{ fixture.away_team.short_name }}</span>
+            <div class="flex-1 flex items-center justify-center gap-2 text-sm">
+              <span class="text-right min-w-[80px] font-medium text-[var(--sd-text-primary)]">{{ fixture.home_team.short_name }}</span>
+              <span class="text-[var(--sd-text-muted)] text-xs px-2">vs</span>
+              <span class="min-w-[80px] font-medium text-[var(--sd-text-primary)]">{{ fixture.away_team.short_name }}</span>
             </div>
           </div>
         </div>
-      </TabPanel>
-    </TabView>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -74,7 +90,7 @@ const upcomingFixtures = computed(() => {
 })
 
 const isNewcastleFixture = (fixture: FootballFixture) => {
-  return fixture.home_team.short_name === 'Newcastle' || 
+  return fixture.home_team.short_name === 'Newcastle' ||
          fixture.away_team.short_name === 'Newcastle'
 }
 
@@ -87,108 +103,3 @@ const formatDate = (dateStr: string) => {
   })
 }
 </script>
-
-<style scoped>
-.fixture-list h3 {
-  margin: 0 0 1rem 0;
-  color: #f0f0f0;
-  font-size: 1.1rem;
-  text-align: center;
-}
-
-.fixtures {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-.fixture-item {
-  background: #1e1e2e;
-  border: 1px solid #333;
-  border-radius: 6px;
-  padding: 0.75rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.fixture-item.newcastle-fixture {
-  background: #1a1a2a;
-  border-color: #444;
-}
-
-.fixture-date {
-  min-width: 80px;
-  color: #888;
-  font-size: 0.85rem;
-}
-
-.fixture-match {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #f0f0f0;
-}
-
-.home-team, .away-team {
-  min-width: 80px;
-}
-
-.home-team {
-  text-align: right;
-}
-
-.away-team {
-  text-align: left;
-}
-
-.score {
-  font-weight: 700;
-  color: #fff;
-  padding: 0 0.5rem;
-}
-
-.vs {
-  color: #888;
-  padding: 0 0.5rem;
-}
-
-.no-data {
-  text-align: center;
-  padding: 2rem;
-  color: #666;
-}
-
-.no-data p {
-  margin: 0;
-}
-
-/* Custom TabView styling to match theme */
-:deep(.p-tabview-nav) {
-  background: #1e1e2e;
-  border-color: #333;
-}
-
-:deep(.p-tabview-nav-link) {
-  color: #888;
-}
-
-:deep(.p-tabview-nav-link:hover) {
-  color: #f0f0f0;
-}
-
-:deep(.p-tabview-selected .p-tabview-nav-link) {
-  color: #f0f0f0;
-  border-color: #fff;
-}
-
-:deep(.p-tabview-panels) {
-  background: transparent;
-  border: 1px solid #333;
-  border-top: none;
-  padding: 1rem;
-}
-</style>

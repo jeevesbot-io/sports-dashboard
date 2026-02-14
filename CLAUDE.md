@@ -13,7 +13,7 @@ Full-stack multi-sport analytics dashboard. Monorepo with a FastAPI (Python) bac
 ```bash
 # Start dev server (from repo root)
 cd backend && source .venv/bin/activate && python app/main.py
-# Or: uvicorn app.main:app --reload --port 5060
+# Or: uvicorn app.main:app --reload --port 5160
 
 # Run all tests
 cd backend && source .venv/bin/activate && python -m pytest tests/ -v --asyncio-mode=auto
@@ -62,8 +62,9 @@ FastAPI app with fully async SQLAlchemy + PostgreSQL (asyncpg). Entry point is `
 - `service.py` — Business logic layer; all DB queries live here
 - `client.py` — External API client (football-data.org)
 - `ingestion.py` — Data sync from external APIs
-- `scrapers/` — Web scrapers (e.g., Understat for xG data)
+- `scrapers/` — Web scrapers (Understat for xG + player data, FBref for advanced stats)
 - `predictions.py` — Poisson model match predictions
+- `projections.py` — Monte Carlo season outcome projections
 
 **Key wiring:**
 - `config.py` — Pydantic `Settings` class, reads from `.env` (see `.env.example`). Contains `current_season` setting used by all service methods.
@@ -71,7 +72,7 @@ FastAPI app with fully async SQLAlchemy + PostgreSQL (asyncpg). Entry point is `
 - `common/schemas.py` — `StandardResponse` wrapper used by all endpoints
 - `common/dependencies.py` — Shared FastAPI dependencies (pagination, validation)
 - CORS allows localhost ports 3000, 5173-5175, 8080
-- Backend runs on port **5060** by default
+- Backend runs on port **5160** by default
 
 **All API responses use `StandardResponse`:** `{ success, message, data, errors, timestamp }`
 
@@ -83,8 +84,8 @@ Vue 3 with Composition API (`<script setup>`), TypeScript strict mode, Pinia for
 - `api/index.ts` — **Single Axios API client** for all backend calls (core + analytics). All methods unwrap `StandardResponse` and return typed data. There is no second API client — do NOT create `services/api.ts`.
 - `stores/football.ts` — Pinia store: teams, standings, fixtures, form analysis. Uses `api/index.ts` for data fetching.
 - `views/football/` — Dashboard, TeamDetail, Analytics pages
-- `components/football/` — Chart components (XgChart, FormHeatmap, PointsProgression, etc.), HeadToHead, MatchPredictor, FixtureList
-- `types/index.ts` — Shared TypeScript interfaces including analytics types (XGStanding, HeadToHeadData, MatchPrediction, TeamXGAnalysis, ChartData)
+- `components/football/` — Chart components (XgChart, XgTimeline, FormHeatmap, PointsProgression, HomeAdvantageChart, SeasonTracker, TeamVsLeague, SeasonProjections, AdvancedStatsTable, PlayerDashboard), HeadToHead, MatchPredictor, FixtureList
+- `types/index.ts` — Shared TypeScript interfaces including analytics types (XGStanding, HeadToHeadData, MatchPrediction, TeamXGAnalysis, ChartData, HomeAdvantageData, PlayerStats, TeamProjection, AdvancedTeamStats, etc.)
 - Path alias: `@/` maps to `src/`
 
 **API client patterns:**
@@ -100,7 +101,7 @@ Vue component → Pinia store action → Axios → FastAPI router → Service la
 
 For analytics views (AnalyticsView, HeadToHead, MatchPredictor), components call `api/index.ts` directly instead of going through the Pinia store.
 
-External data comes in via `POST /api/football/ingest` (Football Data API) and `POST /api/football/ingest-xg` (Understat scraper).
+External data comes in via `POST /api/football/ingest` (Football Data API), `POST /api/football/ingest-xg` (Understat xG scraper), `POST /api/football/ingest-players` (Understat player data), and `POST /api/football/ingest-fbref` (FBref advanced stats).
 
 ## Testing
 
@@ -116,7 +117,7 @@ Backend requires a `.env` file in `backend/` (template: `.env.example`). Key var
 - `CURRENT_SEASON` — Season year (default: 2025)
 
 Frontend has an optional `.env` file (template: `frontend/.env.example`):
-- `VITE_API_BASE_URL` — Backend URL (default: `http://localhost:5060`)
+- `VITE_API_BASE_URL` — Backend URL (default: `http://localhost:5160`)
 
 ## Git
 
@@ -125,6 +126,7 @@ Frontend has an optional `.env` file (template: `frontend/.env.example`):
 
 ## Known Limitations
 
-- **PointsProgressionChart** uses simplified linear interpolation when rendered from the Dashboard (standings-based). The backend `GET /api/football/charts/points-progression` endpoint provides real matchday-by-matchday data — wire this up for accurate charts.
 - **Understat scraper** falls back to mock data when scraping fails. The xG standings endpoint includes "mock" in the response message when mock data is detected. The frontend AnalyticsView shows a "Mock Data" tag when this is detected.
-- **Form heatmap N+1 queries** — `get_form_heatmap()` calls `get_team_form()` per team. For production, batch-load all fixtures in one query and compute form in-memory.
+- **FBref scraper** requires `beautifulsoup4` for HTML parsing. Falls back to mock data if scraping fails or BS4 is unavailable. Rate-limited at 5s between requests.
+- **Set Piece Analysis** — deferred; requires event-level data not available from current sources.
+- **Key Player Impact** — deferred; requires per-match lineup data from individual Understat match pages.

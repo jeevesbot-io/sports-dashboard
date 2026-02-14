@@ -203,6 +203,140 @@ class UnderstatScraper:
         # Fallback to original name
         return team_name
     
+    async def scrape_league_players(self, season: int = 2025) -> List[Dict[str, Any]]:
+        """Scrape player data from Understat league page (playersData variable)."""
+        logger.info(f"Scraping Understat player data for season {season}")
+
+        async with httpx.AsyncClient() as client:
+            try:
+                url = f"{self.base_url}/league/EPL/{season}"
+                response = await client.get(url, timeout=30.0)
+                response.raise_for_status()
+
+                # Look for playersData JSON in page
+                pattern = r'var\s+playersData\s*=\s*JSON\.parse\(\'([^\']+)\'\)'
+                match = re.search(pattern, response.text)
+                if not match:
+                    logger.warning("playersData not found in page")
+                    return []
+
+                json_str = match.group(1).replace('\\"', '"').replace('\\\\', '\\')
+                data = json.loads(json_str)
+
+                players = []
+                for p in data if isinstance(data, list) else []:
+                    try:
+                        games = int(p.get('games', 0) or 0)
+                        minutes = int(p.get('time', 0) or 0)
+                        goals = int(p.get('goals', 0) or 0)
+                        xg = float(p.get('xG', 0) or 0)
+                        assists = int(p.get('assists', 0) or 0)
+                        xa = float(p.get('xA', 0) or 0)
+                        shots = int(p.get('shots', 0) or 0)
+                        key_passes_val = int(p.get('key_passes', 0) or 0)
+                        npg = int(p.get('npg', 0) or 0)
+                        npxg = float(p.get('npxG', 0) or 0)
+                        xg_per_90 = round(xg / (minutes / 90), 2) if minutes > 0 else 0.0
+                        goals_minus_xg = round(goals - xg, 2)
+                        team_name = self._normalize_team_name(p.get('team_title', ''))
+
+                        players.append({
+                            'understat_player_id': str(p.get('id', '')),
+                            'name': p.get('player_name', ''),
+                            'team_name': team_name,
+                            'season': season,
+                            'games': games,
+                            'minutes': minutes,
+                            'goals': goals,
+                            'assists': assists,
+                            'shots': shots,
+                            'key_passes': key_passes_val,
+                            'xg': round(xg, 2),
+                            'xa': round(xa, 2),
+                            'npg': npg,
+                            'npxg': round(npxg, 2),
+                            'xg_per_90': xg_per_90,
+                            'goals_minus_xg': goals_minus_xg,
+                        })
+                    except (ValueError, KeyError, TypeError) as e:
+                        logger.warning(f"Failed to parse player: {e}")
+                        continue
+
+                logger.info(f"Found {len(players)} players on Understat")
+                return players
+
+            except Exception as e:
+                logger.error(f"Failed to scrape player data: {e}")
+                return []
+
+    async def store_player_data(self, db: AsyncSession, players: List[Dict[str, Any]], season: int = 2025) -> int:
+        """Store player data, upserting by understat_player_id + season."""
+        if not players:
+            return 0
+
+        logger.info(f"Storing {len(players)} player records")
+        stored = 0
+
+        for p in players:
+            try:
+                uid = p.get('understat_player_id')
+                exists_query = text("""
+                    SELECT id FROM sport_football_player_stats
+                    WHERE understat_player_id = :uid AND season = :season
+                """)
+                result = await db.execute(exists_query, {"uid": uid, "season": season})
+                existing = result.fetchone()
+
+                if existing:
+                    update_query = text("""
+                        UPDATE sport_football_player_stats SET
+                            name = :name, team_name = :team_name, games = :games,
+                            minutes = :minutes, goals = :goals, assists = :assists,
+                            shots = :shots, key_passes = :key_passes, xg = :xg, xa = :xa,
+                            npg = :npg, npxg = :npxg, xg_per_90 = :xg_per_90,
+                            goals_minus_xg = :goals_minus_xg
+                        WHERE understat_player_id = :uid AND season = :season
+                    """)
+                    await db.execute(update_query, {
+                        "uid": uid, "season": season,
+                        "name": p['name'], "team_name": p['team_name'],
+                        "games": p['games'], "minutes": p['minutes'],
+                        "goals": p['goals'], "assists": p['assists'],
+                        "shots": p['shots'], "key_passes": p['key_passes'],
+                        "xg": p['xg'], "xa": p['xa'], "npg": p['npg'],
+                        "npxg": p['npxg'], "xg_per_90": p['xg_per_90'],
+                        "goals_minus_xg": p['goals_minus_xg']
+                    })
+                else:
+                    insert_query = text("""
+                        INSERT INTO sport_football_player_stats
+                        (understat_player_id, name, team_name, season, games, minutes,
+                         goals, assists, shots, key_passes, xg, xa, npg, npxg,
+                         xg_per_90, goals_minus_xg, created_at)
+                        VALUES (:uid, :name, :team_name, :season, :games, :minutes,
+                                :goals, :assists, :shots, :key_passes, :xg, :xa,
+                                :npg, :npxg, :xg_per_90, :goals_minus_xg, :created_at)
+                    """)
+                    await db.execute(insert_query, {
+                        "uid": uid, "name": p['name'], "team_name": p['team_name'],
+                        "season": season, "games": p['games'], "minutes": p['minutes'],
+                        "goals": p['goals'], "assists": p['assists'],
+                        "shots": p['shots'], "key_passes": p['key_passes'],
+                        "xg": p['xg'], "xa": p['xa'], "npg": p['npg'],
+                        "npxg": p['npxg'], "xg_per_90": p['xg_per_90'],
+                        "goals_minus_xg": p['goals_minus_xg'],
+                        "created_at": datetime.utcnow()
+                    })
+
+                stored += 1
+            except Exception as e:
+                logger.error(f"Failed to store player {p.get('name')}: {e}")
+                continue
+
+        await db.commit()
+        logger.info(f"Successfully stored {stored} player records")
+        return stored
+
     async def store_xg_data(self, db: AsyncSession, matches: List[Dict[str, Any]]) -> int:
         """
         Store xG data in the database.
@@ -314,6 +448,95 @@ async def ingest_xg_data(db: AsyncSession, season: int = 2025) -> Dict[str, Any]
             "mock_data": True,
             "error": str(e)
         }
+
+
+async def ingest_player_data(db: AsyncSession, season: int = 2025) -> Dict[str, Any]:
+    """Ingest player data from Understat league page."""
+    scraper = UnderstatScraper()
+
+    try:
+        players = await scraper.scrape_league_players(season)
+        if not players:
+            logger.warning("No player data found, creating mock data")
+            players = _create_mock_player_data(season)
+
+        stored = await scraper.store_player_data(db, players, season)
+        return {
+            "scraped_players": len(players),
+            "stored_players": stored,
+            "season": season,
+            "success": True,
+            "mock_data": len(players) > 0 and players[0].get('mock', False)
+        }
+    except Exception as e:
+        logger.error(f"Player ingestion failed: {e}")
+        mock_players = _create_mock_player_data(season)
+        stored = await scraper.store_player_data(db, mock_players, season)
+        return {
+            "scraped_players": 0,
+            "stored_players": stored,
+            "season": season,
+            "success": False,
+            "mock_data": True,
+            "error": str(e)
+        }
+
+
+def _create_mock_player_data(season: int = 2025) -> List[Dict[str, Any]]:
+    """Create mock player data for testing."""
+    import random
+
+    teams = list(TEAM_NAME_MAPPING.keys())[:20]
+    positions = ['FW', 'MF', 'DF', 'GK']
+    first_names = ['Harry', 'Mohamed', 'Bruno', 'Erling', 'Bukayo', 'Cole', 'Marcus',
+                   'James', 'Phil', 'Declan', 'Alexander', 'Martin', 'Ollie', 'Dominic',
+                   'Jarrod', 'Anthony', 'Eberechi', 'Luis', 'Darwin', 'Miguel']
+    last_names = ['Kane', 'Salah', 'Fernandes', 'Haaland', 'Saka', 'Palmer', 'Rashford',
+                  'Maddison', 'Foden', 'Rice', 'Isak', 'Odegaard', 'Watkins', 'Solanke',
+                  'Bowen', 'Gordon', 'Eze', 'Diaz', 'Nunez', 'Almiron']
+
+    players = []
+    for i in range(80):
+        first = random.choice(first_names)
+        last = random.choice(last_names)
+        name = f"{first} {last}" if i < 20 else f"{first} {last} {i}"
+        team = random.choice(teams)
+        games = random.randint(5, 30)
+        minutes = games * random.randint(45, 90)
+        goals = random.randint(0, 20)
+        xg = round(goals + random.uniform(-3, 3), 2)
+        xg = max(0, xg)
+        assists = random.randint(0, 12)
+        xa = round(assists + random.uniform(-2, 2), 2)
+        xa = max(0, xa)
+        shots = goals * random.randint(3, 8)
+        key_passes_val = assists * random.randint(2, 5)
+        npg = max(0, goals - random.randint(0, 3))
+        npxg = round(max(0, xg - random.uniform(0, 2)), 2)
+        xg_per_90 = round(xg / (minutes / 90), 2) if minutes > 0 else 0.0
+        goals_minus_xg = round(goals - xg, 2)
+
+        players.append({
+            'understat_player_id': f"mock_player_{i + 1}",
+            'name': name,
+            'team_name': team,
+            'season': season,
+            'games': games,
+            'minutes': minutes,
+            'goals': goals,
+            'assists': assists,
+            'shots': shots,
+            'key_passes': key_passes_val,
+            'xg': xg,
+            'xa': xa,
+            'npg': npg,
+            'npxg': npxg,
+            'xg_per_90': xg_per_90,
+            'goals_minus_xg': goals_minus_xg,
+            'mock': True
+        })
+
+    return players
 
 
 def _create_mock_xg_data() -> List[Dict[str, Any]]:
