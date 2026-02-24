@@ -72,3 +72,6 @@ logs/
 htmlcov/
 .tox/
 .pytest_cache/
+
+screenshots/
+test-results/

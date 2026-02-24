@@ -72,19 +72,19 @@
             <div>
               <div class="text-[var(--sd-text-muted)]">Home Win</div>
               <div class="font-mono font-semibold text-emerald-400">
-                {{ ((item.prediction?.home_win_prob || 0) * 100).toFixed(0) }}%
+                {{ (item.prediction?.home_win_prob || 0).toFixed(0) }}%
               </div>
             </div>
             <div>
               <div class="text-[var(--sd-text-muted)]">Draw</div>
               <div class="font-mono font-semibold text-amber-400">
-                {{ ((item.prediction?.draw_prob || 0) * 100).toFixed(0) }}%
+                {{ (item.prediction?.draw_prob || 0).toFixed(0) }}%
               </div>
             </div>
             <div>
               <div class="text-[var(--sd-text-muted)]">Away Win</div>
               <div class="font-mono font-semibold text-red-400">
-                {{ ((item.prediction?.away_win_prob || 0) * 100).toFixed(0) }}%
+                {{ (item.prediction?.away_win_prob || 0).toFixed(0) }}%
               </div>
             </div>
           </div>
