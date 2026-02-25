@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class PoissonPredictor:
     """Poisson-based match outcome predictor."""
 
-    def __init__(self, season: int = 2025):
+    def __init__(self, season: int = 2025) -> None:
         self.season = season
         self.league_avg_goals = 2.5  # fallback, computed from data if available
 
