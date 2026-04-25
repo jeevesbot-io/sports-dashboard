@@ -1,6 +1,7 @@
 """
 Main FastAPI application with CORS and lifecycle management.
 """
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
@@ -11,11 +12,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 
 from .config import settings
-from .db import init_db, close_db
+from .db import init_db, close_db, AsyncSessionLocal
 from .common.schemas import HealthResponse, ErrorResponse, StandardResponse
 from .sports.football.router import router as football_router
 from .sports.cricket.router import router as cricket_router
 from .sports.rugby.router import router as rugby_router
+from .sports.football.ingestion import FootballDataIngestion
 
 # Configure logging
 logging.basicConfig(
@@ -24,10 +26,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+_sync_task: asyncio.Task | None = None
+
+
+async def _football_sync_loop():
+    """Background task: run full football sync at startup (after 30s) then every 6 hours."""
+    await asyncio.sleep(30)
+    while True:
+        try:
+            logger.info("Football sync: starting scheduled run")
+            ingestion = FootballDataIngestion()
+            async with AsyncSessionLocal() as db:
+                result = await ingestion.full_sync(db, competition="PL")
+            logger.info(f"Football sync: completed — {result}")
+        except Exception as e:
+            logger.error(f"Football sync: error — {e}", exc_info=True)
+        await asyncio.sleep(6 * 3600)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan management."""
+    global _sync_task
     logger.info("Starting Sports Dashboard API...")
     
     # Initialize database
@@ -37,10 +57,16 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as e:
         logger.error(f"Failed to initialize database: {e}")
         raise
+
+    # Start 6-hour football data refresh loop
+    _sync_task = asyncio.create_task(_football_sync_loop())
+    logger.info("Football sync scheduler started (first run in 30s, then every 6h)")
     
     yield
     
     # Cleanup
+    if _sync_task and not _sync_task.done():
+        _sync_task.cancel()
     logger.info("Shutting down Sports Dashboard API...")
     await close_db()
 

@@ -1196,3 +1196,25 @@ async def get_upcoming_fixtures(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to retrieve upcoming fixtures"
         )
+
+# ====== Data Sync ======
+
+@router.post("/sync", response_model=StandardResponse[dict])
+async def trigger_sync(
+    competition: str = Query(default="PL"),
+    db: AsyncSession = Depends(get_db)
+):
+    """Manually trigger a full data sync from football-data.org."""
+    try:
+        ingestion = FootballDataIngestion()
+        result = await ingestion.full_sync(db, competition=competition)
+        return StandardResponse(
+            data=result,
+            message=f"Sync completed for {competition}: {result['teams']} teams, {result['fixtures']} fixtures, {result['standings']} standings"
+        )
+    except Exception as e:
+        logger.error(f"Error during manual sync: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Sync failed: {str(e)}"
+        )
